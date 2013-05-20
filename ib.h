@@ -39,7 +39,7 @@ struct qp_con_data_t{
 typedef struct resources {
     struct ibv_port_attr	port_attr;	/* IB port attributes */
     struct qp_con_data_t	remote_props;
-    struct ibv_context		*ib_ctx;	/*device handle*/ 
+    struct ibv_context		*ib_ctx;	/*device handle*/
     struct ibv_pd		*pd;
     struct ibv_cq		*scq;
     struct ibv_cq		*rcq;
@@ -69,3 +69,4 @@ extern int	create_sge(resource_t *res, char *buf, int size, struct ibv_sge *sge)
 extern int	post_ibreceive(resource_t *res, struct ibv_sge *sge_list, int sge_size);
 extern int	post_ibsend(resource_t *res, int opcode, struct ibv_sge *sge_list,
 			    struct ibv_send_wr *sr, int sge_size);
+extern int resource_destroy(resource_t *res);

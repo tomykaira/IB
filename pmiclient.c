@@ -62,7 +62,7 @@ mypmiPutAddr(char *key, void *val)
 }
 
 void
-mypmiPutByte(char *key, char *bytes, int size)
+mypmiPutByte(char *key, unsigned char *bytes, int size)
 {
     int		cc;
     int		i;
@@ -80,7 +80,7 @@ mypmiPutByte(char *key, char *bytes, int size)
 }
 
 void
-mypmiGetByte(char *key, char *bytes, int size)
+mypmiGetByte(char *key, unsigned char *bytes, int size)
 {
     int		cc;
     int		i;
@@ -104,7 +104,7 @@ mypmiGetByte(char *key, char *bytes, int size)
 int
 mypmiGetInt(char *key)
 {
-    
+
     int		cc;
     char	tmp[NMSIZE];
 
@@ -117,7 +117,7 @@ mypmiGetInt(char *key)
 void*
 mypmiGetAddr(char *key)
 {
-    
+
     int		cc;
     void	*addr;
     char	tmp[NMSIZE];

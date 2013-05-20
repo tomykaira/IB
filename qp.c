@@ -90,7 +90,6 @@ int
 connect_qp(resource_t *res, int ib_port, int gid_idx, int myrank)
 {
     int		rc = 0;
-    char	temp_char;
     union ibv_gid	my_gid;
     uint32_t	remote_qp_num;
     uint16_t	remote_lid;
@@ -117,7 +116,7 @@ connect_qp(resource_t *res, int ib_port, int gid_idx, int myrank)
     sprintf(key, "RANK%d_LID", myrank);
     mypmiPutInt(key, res->port_attr.lid);
     sprintf(key, "RANK%d_GID", myrank);
-    mypmiPutByte(key, (char*) &my_gid, 16);
+    mypmiPutByte(key, (uint8_t *)&my_gid, 16);
     /* * */
     mypmiBarrier();
     /* * */
@@ -131,7 +130,7 @@ connect_qp(resource_t *res, int ib_port, int gid_idx, int myrank)
 
     DEBUG {
 	uint8_t *p;
-	fprintf(stderr, "[%d] remote_qp_num(%d) remote_lid(%d)\n", remote_qp_num, remote_lid);
+	fprintf(stderr, "[%d] remote_qp_num(%d) remote_lid(%d)\n", myrank, remote_qp_num, remote_lid);
 	p = (uint8_t*) &my_gid;
 	fprintf(stdout, "[%d] Local GID = %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n", myrank, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]);
 	p = remote_gid;

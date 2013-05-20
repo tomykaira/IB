@@ -6,7 +6,7 @@ resource_create(resource_t *res, int ib_port, int myrank)
     struct ibv_device		**dev_list = NULL;
     struct ibv_qp_init_attr	qp_init_attr;
     struct ibv_device		*ib_dev = NULL;
-    char	*dev_name;
+    char	*dev_name = NULL;
     size_t	size;
     int		i;
     int		mr_flags = 0;
@@ -24,7 +24,7 @@ resource_create(resource_t *res, int ib_port, int myrank)
     }
     // if no device
     if(!dev_numm) {
-	fprintf(stderr, "[%d] No IB device is found %d device(s)\n", myrank);
+	fprintf(stderr, "[%d] No IB device is found\n", myrank);
 	rc = 1;
 	goto err_exit;
     }
@@ -37,13 +37,13 @@ resource_create(resource_t *res, int ib_port, int myrank)
 	break;
     }
     if (!ib_dev){
-	fprintf(stderr, "[%] IB device %s wasn't found\n", myrank, dev_name);
+	fprintf(stderr, "[%d] IB device %s wasn't found\n", myrank, dev_name);
 	rc = 1;
 	goto err_exit;
     }
     res->ib_ctx = ibv_open_device(ib_dev);
-    fprintf(stdout, "[%d] IB context = %x\n", myrank, res->ib_ctx);
-    if(!res->ib_ctx){	
+    fprintf(stdout, "[%d] IB context = %lx\n", myrank, (uintptr_t)res->ib_ctx);
+    if(!res->ib_ctx){
 	fprintf(stderr, "[%d] failed to open device %s\n", myrank, dev_name);
 	rc = 1;
 	goto err_exit;
@@ -67,7 +67,7 @@ resource_create(resource_t *res, int ib_port, int myrank)
 	goto err_exit;
     }
 
-    /* Create send/recv CQ 
+    /* Create send/recv CQ
      *  inputs:
      *		device handle
      *		CQ capacity
@@ -86,7 +86,7 @@ resource_create(resource_t *res, int ib_port, int myrank)
 	rc = 1;
 	goto err_exit;
     }
-	
+
     /* Allocate fix buffer */
     size = MAX_FIX_BUF_SIZE;
     res->buf_size = size;
@@ -98,7 +98,7 @@ resource_create(resource_t *res, int ib_port, int myrank)
     }
     memset(res->buf, 0 , size);
 
-    /* Memory Region 
+    /* Memory Region
      *	inputs:
      *		device handle
      *		PD
@@ -123,7 +123,7 @@ resource_create(resource_t *res, int ib_port, int myrank)
     fprintf(stdout, "[%d] fixed MR was registered with addr=%p, lkey=0x%x, rkey=0x%x, flags=0x%x\n", myrank, res->buf, res->mr_list[0]->lkey, res->mr_list[0]->rkey, mr_flags);
 
     /* Create QP */
-    // inputs: 
+    // inputs:
     //	PD
     //	CQs for SQ,RQ
     //	capacity of SQ,RQ

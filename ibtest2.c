@@ -2,6 +2,9 @@
 #include "../spawn/pmiclient.h"
 
 resource_t	res;
+int connect_qp(resource_t *res, int ib_port, int gid_idx, int myrank);
+int create_sge2(resource_t *res, char *buf, int size, int count, struct ibv_sge *sge);
+int post_ibreceive2(resource_t *res, struct ibv_sge *sge_list, int count);
 
 #define MHZ	2932.583
 //#define SIZE	128
@@ -21,12 +24,10 @@ main()
     struct ibv_sge	sge_list[TIME];
     struct ibv_wc	wc;
     struct ibv_send_wr	*sr;
-    int		size = SIZE;
     int		i;
     float	time;
     unsigned long long	start, end;
     int		count;
-    int		ntries = 0;
 
     mypmiInit(&rank, &nprocs);
     fprintf(stderr, "[%d] nprocs(%d)\n", rank, nprocs);
@@ -60,7 +61,7 @@ main()
 		fprintf(stderr, "[%d] is really recived ? expected value(%d) received value(%d)\n", rank, i, buf[COMBUF_SIZE*i]);
 	    }
 	    time = ((float)(end - start))/((float)MHZ);
-	    fprintf(stderr, "[%d] step %d rc(%d) id(%d) %d clock %f usec (%d times sleep)\n",
+	    fprintf(stderr, "[%d] step %d rc(%d) id(%ld) %d clock %f usec (%d times sleep)\n",
 		    rank, i, rc, wc.wr_id, (int)(end - start), time, count);
 	    fprintf(stderr, "[%d] %d byte has received (opcode=%d)\n", rank, wc.byte_len, wc.opcode);
 	}
@@ -77,7 +78,7 @@ main()
 	    time = ((float)(end - start))/((float)MHZ);
 	    fprintf(stderr, "[%d] step %i %d clock %f usec (%d times sleep)\n",
 		    rank, i, (int)(end - start), time, count);
-	    fprintf(stderr, "[%d] %d byte opcode(%d) id(%d) rc(%d)\n",
+	    fprintf(stderr, "[%d] %d byte opcode(%d) id(%ld) rc(%d)\n",
 		    rank, wc.byte_len, wc.opcode, wc.wr_id, rc);
 	}
     }

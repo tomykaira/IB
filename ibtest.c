@@ -2,6 +2,7 @@
 #include "pmiclient.h"
 
 resource_t	res;
+int connect_qp(resource_t *res, int ib_port, int gid_idx, int myrank);
 
 #define MHZ	2932.583
 #define SIZE	437		/* < 450 if SEND_INLINE set */
@@ -19,7 +20,6 @@ main()
     struct ibv_sge	sge_list;
     struct ibv_wc	wc;
     struct ibv_send_wr	*sr;
-    int		size = SIZE;
     int		i;
     float	time;
     unsigned long long	start, end;
@@ -71,7 +71,7 @@ main()
 	    time = ((float)(end - start))/((float)MHZ);
 	    fprintf(stderr, "[%d] %d clock %f usec (%d times sleep)\n",
 		    rank, (int)(end - start), time, count);
-	    fprintf(stderr, "[%d] %d byte opcode(%d) id(%d) rc(%d)\n",
+	    fprintf(stderr, "[%d] %d byte opcode(%d) id(%ld) rc(%d)\n",
 		    rank, wc.byte_len, wc.opcode, wc.wr_id, rc);
 	} while (ntries++ < TIME);
     }

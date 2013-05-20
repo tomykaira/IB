@@ -27,7 +27,7 @@ poll_cq(resource_t *res, struct ibv_wc *wc, int num_wr, int cq_flg)
     if (poll_result <= 0) return poll_result;
     DEBUG {
 	for(i = 0; i < num_wr; i++){
-	    fprintf(stderr, "status: %d, vendor syndrome: 0x%d, %d byte, op: 0x%d, id=%d\n",
+	    fprintf(stderr, "status: %d, vendor syndrome: 0x%d, %d byte, op: 0x%d, id=%ld\n",
 		    wc[i].status, wc[i].vendor_err, wc[i].byte_len, wc[i].opcode, wc[i].wr_id);
 	}
     }
@@ -91,7 +91,7 @@ post_ibreceive(resource_t *res, struct ibv_sge *sge_list, int sge_size)
     rr->num_sge = sge_size;
     rc = ibv_post_recv(res->qp, rr, &bad_wr);
     if (rc) {
-	fprintf(stderr, "failed to post RR(%d),bad_wr.wr_id=%d, errmsg=%s\n", rc, bad_wr->wr_id, strerror(rc));
+	fprintf(stderr, "failed to post RR(%d),bad_wr.wr_id=%ld, errmsg=%s\n", rc, bad_wr->wr_id, strerror(rc));
     }
     return rc;
 }
@@ -102,7 +102,7 @@ post_ibreceive2(resource_t *res, struct ibv_sge *sge_list, int count)
     struct ibv_recv_wr	rr;
     struct ibv_recv_wr	*bad_wr;
     int			i;
-    int			rc;
+    int			rc = 0;
 
     /* Create RR list */
     for (i = 0; i < count; i++) {
@@ -113,7 +113,7 @@ post_ibreceive2(resource_t *res, struct ibv_sge *sge_list, int count)
 	rr.num_sge = 1;
 	rc = ibv_post_recv(res->qp, &rr, &bad_wr);
 	if (rc) {
-	    fprintf(stderr, "failed to post RR(%d),bad_wr.wr_id=%d, errmsg=%s\n", rc, bad_wr->wr_id, strerror(rc));
+	    fprintf(stderr, "failed to post RR(%d),bad_wr.wr_id=%ld, errmsg=%s\n", rc, bad_wr->wr_id, strerror(rc));
 	    return rc;
 	}
     }
