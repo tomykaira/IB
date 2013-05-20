@@ -1,5 +1,5 @@
 #include "ib.h"
-#include "../spawn/pmiclient.h"
+#include "pmiclient.h"
 
 static int modify_qp_to_init(struct ibv_qp *qp, int ib_port)
 {

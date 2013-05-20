@@ -1,5 +1,5 @@
 #include "ib.h"
-#include "../spawn/pmiclient.h"
+#include "pmiclient.h"
 
 resource_t	res;
 
