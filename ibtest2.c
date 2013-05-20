@@ -49,7 +49,6 @@ main()
 	ncount = 0;
 	post_ibreceive2(&res, sge_list, TIME);
 	for (i = 0; i < TIME; i++) {
-	    mypmiBarrier();
 	    count = 0;
 	    start = getCPUCounter();
 	    while ((rc = poll_cq(&res, &wc, 1, RCQ_FLG)) == 0) {
@@ -63,13 +62,10 @@ main()
 	    time = ((float)(end - start))/((float)MHZ);
 	    fprintf(stderr, "[%d] step %d rc(%d) id(%d) %d clock %f usec (%d times sleep)\n",
 		    rank, i, rc, wc.wr_id, (int)(end - start), time, count);
-#if 0
 	    fprintf(stderr, "[%d] %d byte has received (opcode=%d)\n", rank, wc.byte_len, wc.opcode);
-#endif
 	}
     } else {
 	for (i = 0; i < TIME; i++) {
-	    mypmiBarrier();
 	    count = 0;
 	    buf[0] = i + 1;
 	    start = getCPUCounter();
@@ -81,10 +77,8 @@ main()
 	    time = ((float)(end - start))/((float)MHZ);
 	    fprintf(stderr, "[%d] step %i %d clock %f usec (%d times sleep)\n",
 		    rank, i, (int)(end - start), time, count);
-#if 0
 	    fprintf(stderr, "[%d] %d byte opcode(%d) id(%d) rc(%d)\n",
 		    rank, wc.byte_len, wc.opcode, wc.wr_id, rc);
-#endif
 	}
     }
     mypmiBarrier();
