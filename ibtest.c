@@ -4,12 +4,10 @@
 resource_t	res;
 
 #define MHZ	2932.583
-//#define SIZE	128
-#define SIZE	4
-// #define SIZE	1024
-#define TIME	100
+#define SIZE	437		/* < 450 if SEND_INLINE set */
+#define TIME	10
 
-char	buf[1024*4];
+char	buf[SIZE];
 
 int
 main()
@@ -58,10 +56,11 @@ main()
 	    fprintf(stderr, "[%d] %d clock %f usec (%d times sleep)\n",
 		    rank, (int)(end - start), time, count);
 	    fprintf(stderr, "[%d] %d byte has received (opcode=%d)\n", rank, wc.byte_len, wc.opcode);
+	    printf("buf %d %d %d %d ... %d %d\n", buf[0], buf[1], buf[2], buf[3], buf[SIZE - 2], buf[SIZE - 1]);
 	} while (ntries++ < TIME);
     } else {
 	do {
-	    printf("ntries(%d)\n", ntries);
+	    printf("[%d] ntries(%d)\n", rank, ntries);
 	    count = 0;
 	    start = getCPUCounter();
 	    post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1);

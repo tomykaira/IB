@@ -11,7 +11,7 @@ poll_cq(resource_t *res, struct ibv_wc *wc, int num_wr, int cq_flg)
     /* poll the completion for a while before giving up of doing it .. */
     if(cq_flg == SCQ_FLG && res->scq != NULL) {
 	for (ntries = 0; ntries < MAX_TRIES; ntries++) {
-	    rc = ibv_poll_cq(res->scq, num_wr, wc);
+	    rc = ibv_poll_cq(res->scq, num_wr, wc); /* wc will overwritten */
 	    if (rc < 0) break;
 	    poll_result += rc;
 	    if (poll_result >= num_wr) break;
@@ -133,7 +133,6 @@ post_ibsend(resource_t *res, int opcode, struct ibv_sge *sge_list, struct ibv_se
     sr->sg_list = sge_list;
     sr->num_sge = sge_size;
     sr->opcode = opcode;
-    sr->send_flags = 0;
     sr->send_flags = IBV_SEND_SIGNALED | IBV_SEND_INLINE;
 /*
     sr->send_flags = IBV_SEND_SIGNALED | IBV_SEND_INLINE;
