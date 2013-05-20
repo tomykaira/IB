@@ -3,5 +3,5 @@
 #PBS -l nodes=2:ppn=1
 
 cd ${PBS_O_WORKDIR}
-make run
-make run2
+mpiexec -np ${PBS_NP} -machinefile ${PBS_NODEFILE} ./ibtest
+mpiexec -np ${PBS_NP} -machinefile ${PBS_NODEFILE} ./ibtest2

@@ -22,10 +22,6 @@ ibtest2: ibtest2.o resource.o qp.o sendrec.o pmiclient.o
 	$(MPICC) -o ibtest2 ibtest2.o resource.o qp.o sendrec.o pmiclient.o -libverbs
 clean:
 	rm -f *.o ibtest
-run: ibtest
-	mpirun -f mpd.hosts -np 2 ./ibtest
-run2: ibtest2
-	mpirun -f mpd.hosts -np 2 ./ibtest2
 depend:
 	makedepend $(SRC)
 # DO NOT DELETE
