@@ -45,6 +45,8 @@ main()
 	struct ibv_sge  sge_list;
 	struct ibv_wc  wc;
 	struct ibv_send_wr  *sr;
+	unsigned long long start, end;
+	float time;
 
 	mypmiInit(&rank, &nprocs);
 	fprintf(stderr, "[%d] nprocs(%d)\n", rank, nprocs);
@@ -78,7 +80,7 @@ main()
 		}
 		while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
 		}
-		printf("[%d] memory region is sent. rc(%d)\n", rank, rc);
+		printf("[%d] memory region is sent. key(%x) addr(%lx) rc(%d)\n", rank, mr->rkey, (intptr_t)mr->addr, rc);
 
 		/* wait for done */
 		post_ibreceive(&res, &sge_list, 1);
@@ -87,6 +89,7 @@ main()
 		printf("[%d] %d byte has received (opcode=%d)\n", rank, wc.byte_len, wc.opcode);
 		printf("[%d] Received message: %s\n", rank, buf);
 		display_received(received);
+		ibv_dereg_mr(mr);
 	} else {
 		struct ibv_mr *mr;
 		struct ibv_sge sge;
@@ -103,7 +106,7 @@ main()
 		peer_key  = BE_TO_INT(buf);
 		peer_addr = BE_TO_INT(buf + 4);
 		peer_addr = (peer_addr << 32) | BE_TO_INT(buf + 8);
-		printf("[%d] remote key %d, remote addr %ld\n", rank, peer_key, peer_addr);
+		printf("[%d] remote key %x, remote addr %lx\n", rank, peer_key, peer_addr);
 
 		mr = ibv_reg_mr(res.pd, buffer, RDMA_SIZE, IBV_ACCESS_LOCAL_WRITE);
 		for (int i = 0; i < RDMA_SIZE; i += 6) {
@@ -123,11 +126,16 @@ main()
 		wr.wr.rdma.rkey = peer_key;
 
 		printf("[%d] Queue post_send RDMA\n", rank);
+		start = getCPUCounter();
 		ibv_post_send(res.qp, &wr, &bad_wr);
 
 		while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
 		}
+		end = getCPUCounter();
+		ibv_dereg_mr(mr);
 		printf("[%d] Complete post_send RDMA rc(%d)\n", rank, rc);
+		time = ((float)(end - start))/((float)MHZ);
+		printf("    %d clock %f usec\n", (int)(end - start), time);
 
 		/* notify done */
 		sprintf(buf, "Done.");
