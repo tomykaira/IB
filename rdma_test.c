@@ -6,7 +6,9 @@ int connect_qp(resource_t *res, int ib_port, int gid_idx, int myrank);
 
 #define MHZ  2932.583
 #define SIZE  128
-#define RDMA_SIZE 1024
+#define RDMA_MIN_SIZE 4096
+#define RDMA_MAX_SIZE 1024*1024	/* size は alignment が大事かもしれない */
+#define STEP RDMA_MIN_SIZE
 #define BE_TO_INT(x) ((((x)[0] & 0xFF) << 24) | (((x)[1] & 0xFF) << 16) | (((x)[2] & 0xFF) << 8) | ((x)[3] & 0xFF))
 
 void INT_TO_BE(char *x, int y)
@@ -19,7 +21,7 @@ void INT_TO_BE(char *x, int y)
 
 char  buf[SIZE];
 
-void display_received(char * received)
+void display_received(char * received, int length)
 {
 	printf("*** ");
 	for (int i = 0; i < 6; ++i) {
@@ -28,7 +30,7 @@ void display_received(char * received)
 
 	printf("... ");
 
-	for (int i = RDMA_SIZE-5; i < RDMA_SIZE; ++i) {
+	for (int i = length-5; i < length; ++i) {
 		printf("%d ", received[i]);
 	}
 
@@ -65,87 +67,95 @@ main()
 
 	if (rank == 0) {
 		struct ibv_mr *mr;
-		char *received = calloc(RDMA_SIZE, sizeof(char));
+		for (int size = RDMA_MIN_SIZE; size < RDMA_MAX_SIZE; size += STEP) {
+			char *received = calloc(size, sizeof(char));
 
-		display_received(received);
+			mr = ibv_reg_mr(res.pd, received, size, IBV_ACCESS_REMOTE_WRITE |  IBV_ACCESS_LOCAL_WRITE);
 
-		mr = ibv_reg_mr(res.pd, received, RDMA_SIZE, IBV_ACCESS_REMOTE_WRITE |  IBV_ACCESS_LOCAL_WRITE);
+			INT_TO_BE(buf, mr->rkey);
+			INT_TO_BE(buf + 4, (((intptr_t)mr->addr) >> 32));
+			INT_TO_BE(buf + 8, (((intptr_t)mr->addr) & 0xffffffff));
+			if (post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1)) {
+				fprintf(stderr, "[%d] failed to post SR\n", rank);
+				goto end;
+			}
+			while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
+			}
+			/* printf("[%d] memory region is sent. key(%x) addr(%lx) rc(%d)\n", rank, mr->rkey, (intptr_t)mr->addr, rc); */
 
-		INT_TO_BE(buf, mr->rkey);
-		INT_TO_BE(buf + 4, (((intptr_t)mr->addr) >> 32));
-		INT_TO_BE(buf + 8, (((intptr_t)mr->addr) & 0xffffffff));
-		if (post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1)) {
-			fprintf(stderr, "[%d] failed to post SR\n", rank);
-			goto end;
+			/* wait for done */
+			post_ibreceive(&res, &sge_list, 1);
+			while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
+			}
+			/* printf("[%d] %d byte has received (opcode=%d)\n", rank, wc.byte_len, wc.opcode); */
+			/* printf("[%d] Received message: %s\n", rank, buf); */
+			/* display_received(received, size); */
+
+			ibv_dereg_mr(mr);
+			free(received);
 		}
-		while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
-		}
-		printf("[%d] memory region is sent. key(%x) addr(%lx) rc(%d)\n", rank, mr->rkey, (intptr_t)mr->addr, rc);
-
-		/* wait for done */
-		post_ibreceive(&res, &sge_list, 1);
-		while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
-		}
-		printf("[%d] %d byte has received (opcode=%d)\n", rank, wc.byte_len, wc.opcode);
-		printf("[%d] Received message: %s\n", rank, buf);
-		display_received(received);
-		ibv_dereg_mr(mr);
 	} else {
 		struct ibv_mr *mr;
 		struct ibv_sge sge;
 		struct ibv_send_wr wr, *bad_wr;
-		char *buffer = malloc(RDMA_SIZE);
 		uint32_t peer_key;
 		uint64_t peer_addr;
 
-		/* receive_peer_mr */
-		post_ibreceive(&res, &sge_list, 1);
-		while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
+		for (int size = RDMA_MIN_SIZE; size < RDMA_MAX_SIZE; size += STEP) {
+			char *content = malloc(size);
+
+			/* receive_peer_mr */
+			post_ibreceive(&res, &sge_list, 1);
+			while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
+			}
+			/* printf("[%d] receive remote addr: %d byte has received (opcode=%d)\n", rank, wc.byte_len, wc.opcode); */
+			peer_key  = BE_TO_INT(buf);
+			peer_addr = BE_TO_INT(buf + 4);
+			peer_addr = (peer_addr << 32) | BE_TO_INT(buf + 8);
+			/* printf("[%d] remote key %x, remote addr %lx\n", rank, peer_key, peer_addr); */
+
+			mr = ibv_reg_mr(res.pd, content, size, IBV_ACCESS_LOCAL_WRITE);
+			for (int i = 0; i < size; i += 6) {
+				strncpy(content + i, "Hello!", 6);
+			}
+			memset(&wr, 0, sizeof(wr));
+
+			sge.addr = (intptr_t)content;
+			sge.length = size;
+			sge.lkey = mr->lkey;
+
+			wr.sg_list = &sge;
+			wr.num_sge = 1;
+			wr.opcode = IBV_WR_RDMA_WRITE;
+
+			wr.wr.rdma.remote_addr = peer_addr;
+			wr.wr.rdma.rkey = peer_key;
+
+			/* printf("[%d] Queue post_send RDMA\n", rank); */
+			start = getCPUCounter();
+			ibv_post_send(res.qp, &wr, &bad_wr);
+
+			while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
+			}
+			end = getCPUCounter();
+
+			ibv_dereg_mr(mr);
+			free(content);
+
+			printf("[%d] Complete post_send %d bytes RDMA rc(%d)\n", rank, size, rc);
+			time = ((float)(end - start))/((float)MHZ);
+			printf("    %d clock %f usec\n", (int)(end - start), time);
+
+			/* notify done */
+			sprintf(buf, "Done.");
+			if (post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1)) {
+				fprintf(stderr, "[%d] failed to post SR\n", rank);
+				goto end;
+			}
+			while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
+			}
+			/* printf("[%d] Complete post_send Done rc(%d)\n", rank, rc); */
 		}
-		printf("[%d] receive remote addr: %d byte has received (opcode=%d)\n", rank, wc.byte_len, wc.opcode);
-		peer_key  = BE_TO_INT(buf);
-		peer_addr = BE_TO_INT(buf + 4);
-		peer_addr = (peer_addr << 32) | BE_TO_INT(buf + 8);
-		printf("[%d] remote key %x, remote addr %lx\n", rank, peer_key, peer_addr);
-
-		mr = ibv_reg_mr(res.pd, buffer, RDMA_SIZE, IBV_ACCESS_LOCAL_WRITE);
-		for (int i = 0; i < RDMA_SIZE; i += 6) {
-			strncpy(buffer + i, "Hello!", 6);
-		}
-		memset(&wr, 0, sizeof(wr));
-
-		sge.addr = (intptr_t)buffer;
-		sge.length = RDMA_SIZE;
-		sge.lkey = mr->lkey;
-
-		wr.sg_list = &sge;
-		wr.num_sge = 1;
-		wr.opcode = IBV_WR_RDMA_WRITE;
-
-		wr.wr.rdma.remote_addr = peer_addr;
-		wr.wr.rdma.rkey = peer_key;
-
-		printf("[%d] Queue post_send RDMA\n", rank);
-		start = getCPUCounter();
-		ibv_post_send(res.qp, &wr, &bad_wr);
-
-		while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
-		}
-		end = getCPUCounter();
-		ibv_dereg_mr(mr);
-		printf("[%d] Complete post_send RDMA rc(%d)\n", rank, rc);
-		time = ((float)(end - start))/((float)MHZ);
-		printf("    %d clock %f usec\n", (int)(end - start), time);
-
-		/* notify done */
-		sprintf(buf, "Done.");
-		if (post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1)) {
-			fprintf(stderr, "[%d] failed to post SR\n", rank);
-			goto end;
-		}
-		while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
-		}
-		printf("[%d] Complete post_send Done rc(%d)\n", rank, rc);
 	}
 
 	mypmiBarrier();
