@@ -5,10 +5,34 @@ resource_t  res;
 int connect_qp(resource_t *res, int ib_port, int gid_idx, int myrank);
 
 #define MHZ  2932.583
-#define SIZE  437    /* < 450 if SEND_INLINE set */
-#define TIME  10
+#define SIZE  1023
+#define BE_TO_INT(x) ((((x)[0] & 0xFF) << 24) | (((x)[1] & 0xFF) << 16) | (((x)[2] & 0xFF) << 8) | ((x)[3] & 0xFF))
+
+void INT_TO_BE(char *x, int y)
+{
+	x[0] = ((y >> 24) & 0xff);
+	x[1] = ((y >> 16) & 0xff);
+	x[2] = ((y >> 8) & 0xff);
+	x[3] = (y & 0xff);
+}
 
 char  buf[SIZE];
+
+void display_received(char * received)
+{
+	printf("*** ");
+	for (int i = 0; i < 6; ++i) {
+		printf("%d ", received[i]);
+	}
+
+	printf("... ");
+
+	for (int i = SIZE-5; i < SIZE; ++i) {
+		printf("%d ", received[i]);
+	}
+
+	printf("\n");
+}
 
 int
 main()
@@ -20,11 +44,7 @@ main()
 	struct ibv_sge  sge_list;
 	struct ibv_wc  wc;
 	struct ibv_send_wr  *sr;
-	int    i;
-	float  time;
-	unsigned long long  start, end;
 	int    count;
-	int    ntries = 0;
 
 	mypmiInit(&rank, &nprocs);
 	fprintf(stderr, "[%d] nprocs(%d)\n", rank, nprocs);
@@ -37,46 +57,97 @@ main()
 	memset(sr, 0, sizeof(*sr));
 	mypmiBarrier();
 	fprintf(stderr, "[%d] START\n", rank);
-	if (rank == 0) {
-		memset(buf, 0, SIZE);
-	} else {
-		for (i = 0; i < SIZE; i++) buf[i] = i;
-	}
-	mypmiBarrier();
-	if (rank == 0) {
-		do {
-			count = 0;
-			start = getCPUCounter();
-			post_ibreceive(&res, &sge_list, 1);
-			while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
-				count++;
-			}
-			end = getCPUCounter();
-			time = ((float)(end - start))/((float)MHZ);
-			fprintf(stderr, "[%d] %d clock %f usec (%d times sleep)\n",
-			        rank, (int)(end - start), time, count);
-			fprintf(stderr, "[%d] %d byte has received (opcode=%d)\n", rank, wc.byte_len, wc.opcode);
-			printf("buf %d %d %d %d ... %d %d\n", buf[0], buf[1], buf[2], buf[3], buf[SIZE - 2], buf[SIZE - 1]);
-		} while (ntries++ < TIME);
-	} else {
-		do {
+	memset(buf, 0, SIZE);
 
-			printf("[%d] ntries(%d)\n", rank, ntries);
-			count = 0;
-			start = getCPUCounter();
-			post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1);
-			while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
-				count++;
-			}
-			end = getCPUCounter();
-			time = ((float)(end - start))/((float)MHZ);
-			fprintf(stderr, "[%d] %d clock %f usec (%d times sleep)\n",
-			        rank, (int)(end - start), time, count);
-			fprintf(stderr, "[%d] %d byte opcode(%d) id(%ld) rc(%d)\n",
-			        rank, wc.byte_len, wc.opcode, wc.wr_id, rc);
-		} while (ntries++ < TIME);
-	}
 	mypmiBarrier();
+
+	if (rank == 0) {
+		struct ibv_mr *mr;
+		char *received = calloc(SIZE, sizeof(char));
+
+		display_received(received);
+
+		mr = ibv_reg_mr(res.pd, received, SIZE, IBV_ACCESS_REMOTE_WRITE |  IBV_ACCESS_LOCAL_WRITE);
+
+		INT_TO_BE(buf, mr->rkey);
+		INT_TO_BE(buf + 4, (((intptr_t)mr->addr) >> 32));
+		INT_TO_BE(buf + 8, (((intptr_t)mr->addr) & 0xffffffff));
+		if (post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1)) {
+			fprintf(stderr, "[%d] failed to post SR\n", rank);
+			goto end;
+		}
+		while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
+			count++;
+		}
+		printf("[%d] memory region is sent. rc(%d)\n", rank, rc);
+
+		/* wait for done */
+		post_ibreceive(&res, &sge_list, 1);
+		while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
+			count++;
+		}
+		printf("[%d] %d byte has received (opcode=%d)\n", rank, wc.byte_len, wc.opcode);
+		printf("[%d] Received message: %s\n", rank, buf);
+		display_received(received);
+	} else {
+		struct ibv_mr *mr;
+		struct ibv_sge sge;
+		struct ibv_send_wr wr, *bad_wr;
+		char *buffer = malloc(SIZE);
+		uint32_t peer_key;
+		uint64_t peer_addr;
+
+		/* receive_peer_mr */
+		post_ibreceive(&res, &sge_list, 1);
+		while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
+			count++;
+		}
+		printf("[%d] receive remote addr: %d byte has received (opcode=%d)\n", rank, wc.byte_len, wc.opcode);
+		peer_key  = BE_TO_INT(buf);
+		peer_addr = BE_TO_INT(buf + 4);
+		peer_addr = (peer_addr << 32) | BE_TO_INT(buf + 8);
+		printf("[%d] remote key %d, remote addr %ld\n", rank, peer_key, peer_addr);
+
+		mr = ibv_reg_mr(res.pd, buffer, SIZE, IBV_ACCESS_LOCAL_WRITE);
+		for (int i = 0; i < SIZE; i += 6) {
+			strncpy(buffer + i, "Hello!", 6);
+		}
+		memset(&wr, 0, sizeof(wr));
+
+		sge.addr = (intptr_t)buffer;
+		sge.length = SIZE;
+		sge.lkey = mr->lkey;
+
+		wr.sg_list = &sge;
+		wr.num_sge = 1;
+		wr.opcode = IBV_WR_RDMA_WRITE;
+
+		wr.wr.rdma.remote_addr = peer_addr;
+		wr.wr.rdma.rkey = peer_key;
+
+		printf("[%d] Queue post_send RDMA\n", rank);
+		ibv_post_send(res.qp, &wr, &bad_wr);
+
+		while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
+			count++;
+		}
+		printf("[%d] Complete post_send RDMA rc(%d)\n", rank, rc);
+
+		/* notify done */
+		sprintf(buf, "Done.");
+		if (post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1)) {
+			fprintf(stderr, "[%d] failed to post SR\n", rank);
+			goto end;
+		}
+		while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
+			count++;
+		}
+		printf("[%d] Complete post_send Done rc(%d)\n", rank, rc);
+	}
+
+	mypmiBarrier();
+
+ end:
 	resource_destroy(&res);
 	return 0;
 }
