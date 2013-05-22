@@ -1,2 +1,4 @@
 .depend
 *.o
+ibtest*
+rdma_test
