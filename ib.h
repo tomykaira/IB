@@ -63,6 +63,20 @@ typedef struct resources {
 #define SCQ_FLG 1
 #define RCQ_FLG 2
 
+#define TEST_NZ(x) do { if ( (x)) die("error: " #x " failed (returned non-zero)." ); } while (0)
+#define TEST_Z(x)  do { if (!(x)) die("error: " #x " failed (returned zero/null)."); } while (0)
+
+#define BE_TO_INT(x) ((((x)[0] & 0xFF) << 24) | (((x)[1] & 0xFF) << 16) | (((x)[2] & 0xFF) << 8) | ((x)[3] & 0xFF))
+
+static void
+INT_TO_BE(char *x, unsigned int y)
+{
+	x[0] = ((y >> 24) & 0xff);
+	x[1] = ((y >> 16) & 0xff);
+	x[2] = ((y >> 8) & 0xff);
+	x[3] = (y & 0xff);
+}
+
 extern int	resource_create(resource_t *res, int ib_port, int myrank);
 extern int	poll_cq(resource_t *res, struct ibv_wc *wc, int num_wr, int cq_flg);
 extern int	create_sge(resource_t *res, char *buf, int size, struct ibv_sge *sge);
