@@ -120,9 +120,7 @@ main(int argc, char *argv[])
 		TEST_Z(strcmp("START", recv));
 		free(recv);
 	}
-	fprintf(stderr, "[%d] START\n", server);
-	fflush(stdout);
-	fflush(stderr);
+	printf("[%d] START\n", server);
 
 	if (server) {
 		struct ibv_mr *mr;

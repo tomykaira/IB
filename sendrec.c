@@ -27,8 +27,8 @@ poll_cq(resource_t *res, struct ibv_wc *wc, int num_wr, int cq_flg)
     if (poll_result <= 0) return poll_result;
     DEBUG {
 	for(i = 0; i < num_wr; i++){
-	    fprintf(stderr, "status: %d, vendor syndrome: 0x%d, %d byte, op: 0x%d, id=%ld\n",
-		    wc[i].status, wc[i].vendor_err, wc[i].byte_len, wc[i].opcode, wc[i].wr_id);
+	    printf("status: %d, vendor syndrome: 0x%d, %d byte, op: 0x%d, id=%ld\n",
+	           wc[i].status, wc[i].vendor_err, wc[i].byte_len, wc[i].opcode, wc[i].wr_id);
 	}
     }
     return poll_result;

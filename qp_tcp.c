@@ -121,7 +121,7 @@ connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int server)
     }
     /* Exchange info between peer */
     DEBUG {
-	fprintf(stdout, "[%d] SENDING INFO TO PEER qp_num(%d) lid(%d)\n", server, res->qp->qp_num, res->port_attr.lid);
+	printf("[%d] SENDING INFO TO PEER qp_num(%d) lid(%d)\n", server, res->qp->qp_num, res->port_attr.lid);
     }
 
     /* format: QP_NUM(4) LID(4) GID(16) */
@@ -160,11 +160,11 @@ connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int server)
 
     DEBUG {
 	uint8_t *p;
-	fprintf(stderr, "[%d] remote_qp_num(%d) remote_lid(%d)\n", server, remote_qp_num, remote_lid);
+	printf("[%d] remote_qp_num(%d) remote_lid(%d)\n", server, remote_qp_num, remote_lid);
 	p = (uint8_t*) &my_gid;
-	fprintf(stdout, "[%d] Local GID = %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n", server, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]);
+	printf("[%d] Local GID = %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n", server, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]);
 	p = remote_gid;
-	fprintf(stdout, "[%d] Remote GID = %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n", server, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]);
+	printf("[%d] Remote GID = %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n", server, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]);
     }
 
     /* Init QP  */
