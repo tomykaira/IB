@@ -1,5 +1,10 @@
 #include "ib.h"
 
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
 resource_t  res;
 
 int open_server(int port);
@@ -8,7 +13,7 @@ int read_safe(int fd, char **data);
 int write_safe(int fd, char *data, int len);
 
 int gid_by_hostname();
-int connect_qp(resource_t *res, int ib_port, int gid_idx, int myrank);
+int connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int myrank);
 
 #define SIZE  128
 #define RDMA_MIN_SIZE 4096
@@ -56,7 +61,7 @@ main(int argc, char *argv[])
 		sfd = connect_peer(argv[1], TCP_PORT);
 	} else {
 		struct sockaddr_in client;
-		int len;
+		uint len;
 
 		DEBUG { printf("Starting as Server\n"); }
 		server = 1;
@@ -114,19 +119,19 @@ main(int argc, char *argv[])
 			INT_TO_BE(buf + 4, (((intptr_t)mr->addr) >> 32));
 			INT_TO_BE(buf + 8, (((intptr_t)mr->addr) & 0xffffffff));
 			if (post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1)) {
-				fprintf(stderr, "[%d] failed to post SR\n", rank);
+				fprintf(stderr, "[%d] failed to post SR\n", server);
 				goto end;
 			}
 			while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
 			}
-			/* printf("[%d] memory region is sent. key(%x) addr(%lx) rc(%d)\n", rank, mr->rkey, (intptr_t)mr->addr, rc); */
+			/* printf("[%d] memory region is sent. key(%x) addr(%lx) rc(%d)\n", server, mr->rkey, (intptr_t)mr->addr, rc); */
 
 			/* wait for done */
 			post_ibreceive(&res, &sge_list, 1);
 			while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
 			}
-			/* printf("[%d] %d byte has received (opcode=%d)\n", rank, wc.byte_len, wc.opcode); */
-			/* printf("[%d] Received message: %s\n", rank, buf); */
+			/* printf("[%d] %d byte has received (opcode=%d)\n", server, wc.byte_len, wc.opcode); */
+			/* printf("[%d] Received message: %s\n", server, buf); */
 			/* display_received(received, size); */
 
 			ibv_dereg_mr(mr);
@@ -146,11 +151,11 @@ main(int argc, char *argv[])
 			post_ibreceive(&res, &sge_list, 1);
 			while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
 			}
-			/* printf("[%d] receive remote addr: %d byte has received (opcode=%d)\n", rank, wc.byte_len, wc.opcode); */
+			/* printf("[%d] receive remote addr: %d byte has received (opcode=%d)\n", server, wc.byte_len, wc.opcode); */
 			peer_key  = BE_TO_INT(buf);
 			peer_addr = BE_TO_INT(buf + 4);
 			peer_addr = (peer_addr << 32) | BE_TO_INT(buf + 8);
-			/* printf("[%d] remote key %x, remote addr %lx\n", rank, peer_key, peer_addr); */
+			/* printf("[%d] remote key %x, remote addr %lx\n", server, peer_key, peer_addr); */
 
 			mr = ibv_reg_mr(res.pd, content, size, IBV_ACCESS_LOCAL_WRITE);
 			for (int i = 0; i < size; i += 6) {
@@ -169,7 +174,7 @@ main(int argc, char *argv[])
 			wr.wr.rdma.remote_addr = peer_addr;
 			wr.wr.rdma.rkey = peer_key;
 
-			/* printf("[%d] Queue post_send RDMA\n", rank); */
+			/* printf("[%d] Queue post_send RDMA\n", server); */
 			start = getCPUCounter();
 			ibv_post_send(res.qp, &wr, &bad_wr);
 
@@ -180,19 +185,19 @@ main(int argc, char *argv[])
 			ibv_dereg_mr(mr);
 			free(content);
 
-			printf("[%d] Complete post_send %d bytes RDMA rc(%d)\n", rank, size, rc);
+			printf("[%d] Complete post_send %d bytes RDMA rc(%d)\n", server, size, rc);
 			time = ((float)(end - start))/((float)MHZ);
 			printf("    %d clock %f usec\n", (int)(end - start), time);
 
 			/* notify done */
 			sprintf(buf, "Done.");
 			if (post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1)) {
-				fprintf(stderr, "[%d] failed to post SR\n", rank);
+				fprintf(stderr, "[%d] failed to post SR\n", server);
 				goto end;
 			}
 			while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
 			}
-			/* printf("[%d] Complete post_send Done rc(%d)\n", rank, rc); */
+			/* printf("[%d] Complete post_send Done rc(%d)\n", server, rc); */
 		}
 	}
 

@@ -3,6 +3,11 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+
+#define BUFSIZE 1024
 
 int write_safe(int fd, char *data, int len)
 {
@@ -112,6 +117,7 @@ int connect_peer(char *hostaddr, int port)
 int open_server(int port)
 {
   int sock0 = socket(AF_INET, SOCK_STREAM, 0);
+  struct sockaddr_in addr;
 
   if (sock0 == -1) {
     perror("socket (server)");

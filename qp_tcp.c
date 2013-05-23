@@ -107,9 +107,7 @@ connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int myrank)
     uint32_t	remote_qp_num;
     uint16_t	remote_lid;
     uint8_t	remote_gid[16];
-    char	key[512];
-    int		peer;
-    char	mine[24], peer[24];
+    char	send[24], *recv;
 
     /* Init QP */
     if(gid_idx >= 0) {
@@ -127,23 +125,24 @@ connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int myrank)
     }
 
     /* format: QP_NUM(4) LID(4) GID(16) */
-    INT_TO_BE(mine, res->qp->qp_num);
-    INT_TO_BE(mine + 4, res->port_attr.lid);
-    memcpy(mine + 8, &my_gid, 16);
-    rc = write_safe(fd, mine, 24);
+    INT_TO_BE(send, res->qp->qp_num);
+    INT_TO_BE(send + 4, res->port_attr.lid);
+    memcpy(send + 8, &my_gid, 16);
+    rc = write_safe(fd, send, 24);
     if (rc == -1) {
 	fprintf(stderr, "[%d] Failed to send QP data\n", myrank);
 	return rc;
     }
 
-    rc = read_safe(fd, &peer);
+    rc = read_safe(fd, &recv);
     if (rc != 24) {
-	fprintf(stderr, "[%d] QP data length expected: 24, got: %d\n", rc);
+	fprintf(stderr, "[%d] QP data length expected: 24, got: %d\n", myrank, rc);
 	return -1;
     }
-    remote_qp_num = BE_TO_INT(peer);
-    remote_lid    = BE_TO_INT(peer);
-    memcpy(remote_gid, peer + 8, 16);
+    remote_qp_num = BE_TO_INT(recv);
+    remote_lid    = BE_TO_INT(recv);
+    memcpy(remote_gid, recv + 8, 16);
+    free(recv);
 
     DEBUG {
 	uint8_t *p;

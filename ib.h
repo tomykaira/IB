@@ -68,6 +68,12 @@ typedef struct resources {
 #define TEST_NZ(x) do { if ( (x)) die("error: " #x " failed (returned non-zero)." ); } while (0)
 #define TEST_Z(x)  do { if (!(x)) die("error: " #x " failed (returned zero/null)."); } while (0)
 
+static void die(const char *reason)
+{
+  fprintf(stderr, "%s\n", reason);
+  exit(EXIT_FAILURE);
+}
+
 #define BE_TO_INT(x) ((((x)[0] & 0xFF) << 24) | (((x)[1] & 0xFF) << 16) | (((x)[2] & 0xFF) << 8) | ((x)[3] & 0xFF))
 
 static void
