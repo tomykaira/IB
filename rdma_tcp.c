@@ -125,9 +125,13 @@ main(int argc, char *argv[])
 	if (server) {
 		struct ibv_mr *mr;
 		for (int size = RDMA_MIN_SIZE; size < RDMA_MAX_SIZE; size += STEP) {
-			char *received = calloc(size, sizeof(char));
+			char *content = calloc(size, sizeof(char));
 
-			TEST_NZ( mr = ibv_reg_mr(res.pd, received, size, IBV_ACCESS_REMOTE_WRITE |  IBV_ACCESS_LOCAL_WRITE) );
+			TEST_NZ( mr = ibv_reg_mr(res.pd, content, size, IBV_ACCESS_REMOTE_READ) );
+
+			for (int i = 0; i < size; i += 6) {
+				strncpy(content + i, "Hello!", 6);
+			}
 
 			INT_TO_BE(buf, mr->rkey);
 			INT_TO_BE(buf + 4, (((intptr_t)mr->addr) >> 32));
@@ -141,12 +145,11 @@ main(int argc, char *argv[])
 			TEST_Z( post_ibreceive(&res, &sge_list, 1) );
 			while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
 			}
-			DEBUG { printf("[%d] %d byte has received (opcode=%d)\n", server, wc.byte_len, wc.opcode); }
-			DEBUG { printf("[%d] Received message: %s\n", server, buf); }
-			DEBUG { display_received(received, size); }
+			DEBUG { printf("[%d] %d byte has content (opcode=%d)\n", server, wc.byte_len, wc.opcode); }
+			DEBUG { printf("[%d] Content message: %s\n", server, buf); }
 
 			ibv_dereg_mr(mr);
-			free(received);
+			free(content);
 		}
 	} else {
 		struct ibv_mr *mr;
@@ -156,7 +159,7 @@ main(int argc, char *argv[])
 		uint64_t peer_addr;
 
 		for (int size = RDMA_MIN_SIZE; size < RDMA_MAX_SIZE; size += STEP) {
-			char *content = malloc(size);
+			char *received = malloc(size);
 
 			/* receive_peer_mr */
 			TEST_Z(post_ibreceive(&res, &sge_list, 1));
@@ -168,19 +171,16 @@ main(int argc, char *argv[])
 			peer_addr = (peer_addr << 32) | BE_TO_INT(buf + 8);
 			DEBUG { printf("[%d] remote key %x, remote addr %lx\n", server, peer_key, peer_addr); }
 
-			TEST_NZ(mr = ibv_reg_mr(res.pd, content, size, IBV_ACCESS_LOCAL_WRITE));
-			for (int i = 0; i < size; i += 6) {
-				strncpy(content + i, "Hello!", 6);
-			}
+			TEST_NZ(mr = ibv_reg_mr(res.pd, received, size, IBV_ACCESS_LOCAL_WRITE));
 			memset(&wr, 0, sizeof(wr));
 
-			sge.addr = (intptr_t)content;
+			sge.addr = (intptr_t)received;
 			sge.length = size;
 			sge.lkey = mr->lkey;
 
 			wr.sg_list = &sge;
 			wr.num_sge = 1;
-			wr.opcode = IBV_WR_RDMA_WRITE;
+			wr.opcode = IBV_WR_RDMA_READ;
 
 			wr.wr.rdma.remote_addr = peer_addr;
 			wr.wr.rdma.rkey = peer_key;
@@ -194,11 +194,9 @@ main(int argc, char *argv[])
 			end = getCPUCounter();
 
 			ibv_dereg_mr(mr);
-			free(content);
 
-			printf("[%d] Complete post_send %d bytes RDMA rc(%d)\n", server, size, rc);
-			time = ((float)(end - start))/((float)MHZ);
-			printf("    %d clock %f usec\n", (int)(end - start), time);
+			received[10] = '\0';
+			printf("[%d] Received %s(%d)\n", server, received);
 
 			/* notify done */
 			sprintf(buf, "Done.");
