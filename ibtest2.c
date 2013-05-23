@@ -6,7 +6,6 @@ int connect_qp(resource_t *res, int ib_port, int gid_idx, int myrank);
 int create_sge2(resource_t *res, char *buf, int size, int count, struct ibv_sge *sge);
 int post_ibreceive2(resource_t *res, struct ibv_sge *sge_list, int count);
 
-#define MHZ	2932.583
 //#define SIZE	128
 #define SIZE	4
 // #define SIZE	1024

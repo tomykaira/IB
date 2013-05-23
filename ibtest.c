@@ -4,7 +4,6 @@
 resource_t	res;
 int connect_qp(resource_t *res, int ib_port, int gid_idx, int myrank);
 
-#define MHZ	2932.583
 #define SIZE	437		/* < 450 if SEND_INLINE set */
 #define TIME	10
 

@@ -63,6 +63,8 @@ typedef struct resources {
 #define SCQ_FLG 1
 #define RCQ_FLG 2
 
+#define MHZ  2932.583
+
 #define TEST_NZ(x) do { if ( (x)) die("error: " #x " failed (returned non-zero)." ); } while (0)
 #define TEST_Z(x)  do { if (!(x)) die("error: " #x " failed (returned zero/null)."); } while (0)
 
