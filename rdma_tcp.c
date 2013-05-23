@@ -13,7 +13,7 @@ int read_safe(int fd, char **data);
 int write_safe(int fd, char *data, int len);
 
 int gid_by_hostname();
-int connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int myrank);
+int connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int server);
 
 #define SIZE  128
 #define RDMA_MIN_SIZE 4096
@@ -81,12 +81,18 @@ main(int argc, char *argv[])
 
 	if (server) {
 		char *recv;
+		char send[] = "CHECK";
 		read_safe(sfd, &recv);
 		TEST_Z(strcmp("CHECK", recv));
 		free(recv);
+		write_safe(sfd, send, strlen(send));
 	} else {
 		char send[] = "CHECK";
+		char *recv;
 		write_safe(sfd, send, strlen(send));
+		read_safe(sfd, &recv);
+		TEST_Z(strcmp("CHECK", recv));
+		free(recv);
 	}
 
 	TEST_Z( resource_create(&res, ib_port, server) );
@@ -99,9 +105,15 @@ main(int argc, char *argv[])
 
 	if (server) {
 		char send[] = "START";
+		char *recv;
+		read_safe(sfd, &recv);
+		TEST_Z(strcmp("START", recv));
+		free(recv);
 		write_safe(sfd, send, strlen(send));
 	} else {
+		char send[] = "START";
 		char *recv;
+		write_safe(sfd, send, strlen(send));
 		read_safe(sfd, &recv);
 		TEST_Z(strcmp("START", recv));
 		free(recv);

@@ -100,7 +100,7 @@ gid_by_hostname()
 }
 
 int
-connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int myrank)
+connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int server)
 {
     int		rc = 0;
     union ibv_gid	my_gid;
@@ -121,24 +121,38 @@ connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int myrank)
     }
     /* Exchange info between peer */
     DEBUG {
-	fprintf(stdout, "[%d] SENDING INFO TO PEER qp_num(%d) lid(%d)\n", myrank, res->qp->qp_num, res->port_attr.lid);
+	fprintf(stdout, "[%d] SENDING INFO TO PEER qp_num(%d) lid(%d)\n", server, res->qp->qp_num, res->port_attr.lid);
     }
 
     /* format: QP_NUM(4) LID(4) GID(16) */
     INT_TO_BE(send, res->qp->qp_num);
     INT_TO_BE(send + 4, res->port_attr.lid);
     memcpy(send + 8, &my_gid, 16);
-    rc = write_safe(fd, send, 24);
-    if (rc == -1) {
-	fprintf(stderr, "[%d] Failed to send QP data\n", myrank);
-	return rc;
+
+    if (server) {
+	rc = read_safe(fd, &recv);
+	if (rc != 24) {
+	    fprintf(stderr, "[%d] QP data length expected: 24, got: %d\n", server, rc);
+	    return -1;
+	}
+	rc = write_safe(fd, send, 24);
+	if (rc == -1) {
+	    fprintf(stderr, "[%d] Failed to send QP data\n", server);
+	    return rc;
+	}
+    } else {
+	rc = write_safe(fd, send, 24);
+	if (rc == -1) {
+	    fprintf(stderr, "[%d] Failed to send QP data\n", server);
+	    return rc;
+	}
+	rc = read_safe(fd, &recv);
+	if (rc != 24) {
+	    fprintf(stderr, "[%d] QP data length expected: 24, got: %d\n", server, rc);
+	    return -1;
+	}
     }
 
-    rc = read_safe(fd, &recv);
-    if (rc != 24) {
-	fprintf(stderr, "[%d] QP data length expected: 24, got: %d\n", myrank, rc);
-	return -1;
-    }
     remote_qp_num = BE_TO_INT(recv);
     remote_lid    = BE_TO_INT(recv);
     memcpy(remote_gid, recv + 8, 16);
@@ -146,11 +160,11 @@ connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int myrank)
 
     DEBUG {
 	uint8_t *p;
-	fprintf(stderr, "[%d] remote_qp_num(%d) remote_lid(%d)\n", myrank, remote_qp_num, remote_lid);
+	fprintf(stderr, "[%d] remote_qp_num(%d) remote_lid(%d)\n", server, remote_qp_num, remote_lid);
 	p = (uint8_t*) &my_gid;
-	fprintf(stdout, "[%d] Local GID = %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n", myrank, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]);
+	fprintf(stdout, "[%d] Local GID = %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n", server, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]);
 	p = remote_gid;
-	fprintf(stdout, "[%d] Remote GID = %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n", myrank, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]);
+	fprintf(stdout, "[%d] Remote GID = %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n", server, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13], p[14], p[15]);
     }
 
     /* Init QP  */
