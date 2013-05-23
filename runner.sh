@@ -1,22 +1,21 @@
-#!/bin/sh
+#!/bin/sh -x
 #PBS -l nodes=2:ppn=1
-#PBS -o /dev/null
-#PBS -e /dev/null
+#PBS -j oe
 
 cd ${PBS_O_WORKDIR}
 
-exec > output.$PBS_JOBNAME 2>&1
+exec > output.$PBS_JOBID 2>&1
 
 me=`hostname`
 
 for host in `cat ${PBS_NODEFILE}`; do
   if [ $host = $me ]; then
     # server
-    ./rdma_tcp &
+    ./rdma_tcp >server.$PBS_JOBID 2>&1 &
   else
     # client
     sleep 1
-    rsh $host "cd ${PBS_O_WORKDIR} ./rdma_tcp $me" &
+    rsh $host "cd ${PBS_O_WORKDIR}; ./rdma_tcp $me > client.$PBS_JOBID 2>&1" &
   fi
 done
 
