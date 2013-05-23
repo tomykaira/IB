@@ -6,22 +6,22 @@ int read_safe(int fd, char **data);
 
 static int modify_qp_to_init(struct ibv_qp *qp, int ib_port)
 {
-	struct ibv_qp_attr attr;
-	int flags;
-	int rc;
+    struct ibv_qp_attr attr;
+    int flags;
+    int rc;
 
-	memset(&attr, 0, sizeof(attr));
-	attr.qp_state = IBV_QPS_INIT;
-	attr.port_num = ib_port;
-	attr.pkey_index = 0;
-	attr.qp_access_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ
-			     | IBV_ACCESS_REMOTE_WRITE;
-	flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
-	rc = ibv_modify_qp(qp, &attr, flags);
-	if (rc) {
-	 fprintf(stderr, "failed to modify QP state to INIT\n");
-	}
-	return rc;
+    memset(&attr, 0, sizeof(attr));
+    attr.qp_state = IBV_QPS_INIT;
+    attr.port_num = ib_port;
+    attr.pkey_index = 0;
+    attr.qp_access_flags = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ
+    		     | IBV_ACCESS_REMOTE_WRITE;
+    flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
+    rc = ibv_modify_qp(qp, &attr, flags);
+    if (rc) {
+	fprintf(stderr, "failed to modify QP state to INIT\n");
+    }
+    return rc;
 }
 
 int
