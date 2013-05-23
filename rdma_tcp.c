@@ -55,17 +55,19 @@ main(int argc, char *argv[])
 	int server_sock = -1;
 	int sfd = -1;
 
-	if (argc == 2) {
+	if (argc == 3) {
+		// host port
 		DEBUG { printf("Starting as Client to %s\n", argv[1]); }
 		server = 0;
-		sfd = connect_peer(argv[1], TCP_PORT);
+		sfd = connect_peer(argv[1], atoi(argv[2]));
 	} else {
+		// port
 		struct sockaddr_in client;
 		uint len;
 
 		DEBUG { printf("Starting as Server\n"); }
 		server = 1;
-		server_sock = open_server(TCP_PORT);
+		server_sock = open_server(atoi(argv[1]));
 		if (server_sock == -1) {
 			fprintf(stderr, "Failed to start server\n");
 			goto end;
