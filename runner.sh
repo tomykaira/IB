@@ -4,6 +4,5 @@
 
 cd ${PBS_O_WORKDIR}
 
-mpiexec -np ${PBS_NP} -machinefile ${PBS_NODEFILE} ./ibtest
-# /home/tomykaira/.rbenv/shims/ruby runner.rb
+/home/tomykaira/.rbenv/shims/ruby runner.rb
 exit 0

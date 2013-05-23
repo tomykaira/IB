@@ -4,6 +4,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 
 resource_t  res;
 
@@ -54,6 +57,7 @@ main(int argc, char *argv[])
 	int server = 0;
 	int server_sock = -1;
 	int sfd = -1;
+  int count = 0;
 
 	if (argc == 3) {
 		// host port
@@ -97,6 +101,7 @@ main(int argc, char *argv[])
 		free(recv);
 	}
 
+
 	TEST_Z( resource_create(&res, ib_port, server) );
 	TEST_Z( connect_qp(&res, sfd, ib_port, gid_by_hostname(), server) );
 	TEST_Z( create_sge(&res, buf, SIZE, &sge_list) );
@@ -123,90 +128,34 @@ main(int argc, char *argv[])
 	printf("[%d] START\n", server);
 
 	if (server) {
-		struct ibv_mr *mr;
-		for (int size = RDMA_MIN_SIZE; size < RDMA_MAX_SIZE; size += STEP) {
-			char *received = calloc(size, sizeof(char));
-
-			TEST_NZ( mr = ibv_reg_mr(res.pd, received, size, IBV_ACCESS_REMOTE_WRITE |  IBV_ACCESS_LOCAL_WRITE) );
-
-			INT_TO_BE(buf, mr->rkey);
-			INT_TO_BE(buf + 4, (((intptr_t)mr->addr) >> 32));
-			INT_TO_BE(buf + 8, (((intptr_t)mr->addr) & 0xffffffff));
-			TEST_Z( post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1) );
-			while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
+		start = getCPUCounter();
+		post_ibreceive(&res, &sge_list, 1);
+		while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
+			count++;
+			if (count >= 100000) {
+				fprintf(stderr, "[%d] poll_cq timed out\n", server);
+				break;
 			}
-			DEBUG { printf("[%d] memory region is sent. key(%x) addr(%lx) rc(%d)\n", server, mr->rkey, (intptr_t)mr->addr, rc); }
-
-			/* wait for done */
-			TEST_Z( post_ibreceive(&res, &sge_list, 1) );
-			while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
-			}
-			DEBUG { printf("[%d] %d byte has received (opcode=%d)\n", server, wc.byte_len, wc.opcode); }
-			DEBUG { printf("[%d] Received message: %s\n", server, buf); }
-			/* display_received(received, size); */
-
-			ibv_dereg_mr(mr);
-			free(received);
 		}
+		end = getCPUCounter();
+		time = ((float)(end - start))/((float)MHZ);
+		printf("[%d] %d clock %f usec (%d times sleep)\n", server, (int)(end - start), time, count);
+		printf("[%d] %d byte has received (opcode=%d)\n", server, wc.byte_len, wc.opcode);
+		printf("buf %d %d %d %d ... %d %d\n", buf[0], buf[1], buf[2], buf[3], buf[SIZE - 2], buf[SIZE - 1]);
 	} else {
-		struct ibv_mr *mr;
-		struct ibv_sge sge;
-		struct ibv_send_wr wr, *bad_wr;
-		uint32_t peer_key;
-		uint64_t peer_addr;
-
-		for (int size = RDMA_MIN_SIZE; size < RDMA_MAX_SIZE; size += STEP) {
-			char *content = malloc(size);
-
-			/* receive_peer_mr */
-			TEST_Z(post_ibreceive(&res, &sge_list, 1));
-			while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
+		start = getCPUCounter();
+		post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1);
+		while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
+			count++;
+			if (count >= 100000) {
+				fprintf(stderr, "[%d] poll_cq timed out\n", server);
+				break;
 			}
-			DEBUG { printf("[%d] receive remote addr: %d byte has received (opcode=%d)\n", server, wc.byte_len, wc.opcode); }
-			peer_key  = BE_TO_INT(buf);
-			peer_addr = BE_TO_INT(buf + 4);
-			peer_addr = (peer_addr << 32) | BE_TO_INT(buf + 8);
-			DEBUG { printf("[%d] remote key %x, remote addr %lx\n", server, peer_key, peer_addr); }
-
-			TEST_NZ(mr = ibv_reg_mr(res.pd, content, size, IBV_ACCESS_LOCAL_WRITE));
-			for (int i = 0; i < size; i += 6) {
-				strncpy(content + i, "Hello!", 6);
-			}
-			memset(&wr, 0, sizeof(wr));
-
-			sge.addr = (intptr_t)content;
-			sge.length = size;
-			sge.lkey = mr->lkey;
-
-			wr.sg_list = &sge;
-			wr.num_sge = 1;
-			wr.opcode = IBV_WR_RDMA_WRITE;
-
-			wr.wr.rdma.remote_addr = peer_addr;
-			wr.wr.rdma.rkey = peer_key;
-
-			DEBUG { printf("[%d] Queue post_send RDMA\n", server); }
-			start = getCPUCounter();
-			TEST_Z(ibv_post_send(res.qp, &wr, &bad_wr));
-
-			while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
-			}
-			end = getCPUCounter();
-
-			ibv_dereg_mr(mr);
-			free(content);
-
-			printf("[%d] Complete post_send %d bytes RDMA rc(%d)\n", server, size, rc);
-			time = ((float)(end - start))/((float)MHZ);
-			printf("    %d clock %f usec\n", (int)(end - start), time);
-
-			/* notify done */
-			sprintf(buf, "Done.");
-			TEST_Z(post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1));
-			while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
-			}
-			DEBUG { printf("[%d] Complete post_send Done rc(%d)\n", server, rc); }
 		}
+		end = getCPUCounter();
+		time = ((float)(end - start))/((float)MHZ);
+		printf("[%d] %d clock %f usec\n", server, (int)(end - start), time, count);
+		printf("[%d] %d byte opcode(%d) id(%ld) rc(%d)\n", server, wc.byte_len, wc.opcode, wc.wr_id, rc);
 	}
 
  end:

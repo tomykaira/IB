@@ -109,6 +109,10 @@ connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int server)
     uint8_t	remote_gid[16];
     char	send[24], *recv;
 
+    DEBUG {
+	printf("[%d] GID_idx: %d\n", server, gid_idx);
+    }
+
     /* Init QP */
     if(gid_idx >= 0) {
 	rc = ibv_query_gid(res->ib_ctx, ib_port, gid_idx, &my_gid);
@@ -154,7 +158,7 @@ connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int server)
     }
 
     remote_qp_num = BE_TO_INT(recv);
-    remote_lid    = BE_TO_INT(recv);
+    remote_lid    = BE_TO_INT(recv + 4);
     memcpy(remote_gid, recv + 8, 16);
     free(recv);
 
