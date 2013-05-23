@@ -4,7 +4,6 @@
 resource_t  res;
 int connect_qp(resource_t *res, int ib_port, int gid_idx, int myrank);
 
-#define MHZ  2932.583
 #define SIZE  128
 #define RDMA_MIN_SIZE 4096
 #define RDMA_MAX_SIZE 1024*1024	/* size は alignment が大事かもしれない */

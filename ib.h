@@ -6,12 +6,10 @@
 #include <infiniband/verbs.h>
 #include <sys/types.h>
 
-#ifndef DEBUG
 #if 0
 #define DEBUG
 #else
 #define DEBUG	if(0)
-#endif
 #endif
 
 #define COMBUF_SIZE	1024
