@@ -138,14 +138,14 @@ main(int argc, char *argv[])
 			}
 			while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
 			}
-			/* printf("[%d] memory region is sent. key(%x) addr(%lx) rc(%d)\n", server, mr->rkey, (intptr_t)mr->addr, rc); */
+			DEBUG { printf("[%d] memory region is sent. key(%x) addr(%lx) rc(%d)\n", server, mr->rkey, (intptr_t)mr->addr, rc); }
 
 			/* wait for done */
 			post_ibreceive(&res, &sge_list, 1);
 			while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
 			}
-			/* printf("[%d] %d byte has received (opcode=%d)\n", server, wc.byte_len, wc.opcode); */
-			/* printf("[%d] Received message: %s\n", server, buf); */
+			DEBUG { printf("[%d] %d byte has received (opcode=%d)\n", server, wc.byte_len, wc.opcode); }
+			DEBUG { printf("[%d] Received message: %s\n", server, buf); }
 			/* display_received(received, size); */
 
 			ibv_dereg_mr(mr);
@@ -165,11 +165,11 @@ main(int argc, char *argv[])
 			post_ibreceive(&res, &sge_list, 1);
 			while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
 			}
-			/* printf("[%d] receive remote addr: %d byte has received (opcode=%d)\n", server, wc.byte_len, wc.opcode); */
+			DEBUG { printf("[%d] receive remote addr: %d byte has received (opcode=%d)\n", server, wc.byte_len, wc.opcode); }
 			peer_key  = BE_TO_INT(buf);
 			peer_addr = BE_TO_INT(buf + 4);
 			peer_addr = (peer_addr << 32) | BE_TO_INT(buf + 8);
-			/* printf("[%d] remote key %x, remote addr %lx\n", server, peer_key, peer_addr); */
+			DEBUG { printf("[%d] remote key %x, remote addr %lx\n", server, peer_key, peer_addr); }
 
 			mr = ibv_reg_mr(res.pd, content, size, IBV_ACCESS_LOCAL_WRITE);
 			for (int i = 0; i < size; i += 6) {
@@ -188,7 +188,7 @@ main(int argc, char *argv[])
 			wr.wr.rdma.remote_addr = peer_addr;
 			wr.wr.rdma.rkey = peer_key;
 
-			/* printf("[%d] Queue post_send RDMA\n", server); */
+			DEBUG { printf("[%d] Queue post_send RDMA\n", server); }
 			start = getCPUCounter();
 			ibv_post_send(res.qp, &wr, &bad_wr);
 
@@ -211,7 +211,7 @@ main(int argc, char *argv[])
 			}
 			while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
 			}
-			/* printf("[%d] Complete post_send Done rc(%d)\n", server, rc); */
+			DEBUG { printf("[%d] Complete post_send Done rc(%d)\n", server, rc); }
 		}
 	}
 

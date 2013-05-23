@@ -6,7 +6,7 @@
 #include <infiniband/verbs.h>
 #include <sys/types.h>
 
-#if 0
+#if 1
 #define DEBUG
 #else
 #define DEBUG	if(0)
@@ -63,8 +63,8 @@ typedef struct resources {
 
 #define MHZ  2932.583
 
-#define TEST_NZ(x) do { if ( (x)) die("error: " #x " failed (returned non-zero)." ); } while (0)
-#define TEST_Z(x)  do { if (!(x)) die("error: " #x " failed (returned zero/null)."); } while (0)
+#define TEST_Z(x) do { if ( (x)) die("error: " #x " failed (returned non-zero)." ); } while (0)
+#define TEST_NZ(x)  do { if (!(x)) die("error: " #x " failed (returned zero/null)."); } while (0)
 
 static void die(const char *reason)
 {
