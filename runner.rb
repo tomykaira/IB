@@ -8,16 +8,18 @@ STDOUT.reopen(File.join(ENV['PBS_O_WORKDIR'], "output.#{job_no}"), 'w')
 STDERR.reopen(File.join(ENV['PBS_O_WORKDIR'], "error.#{job_no}"), 'w')
 Dir.chdir(ENV['PBS_O_WORKDIR'])
 
-me = `hostname`
+me = `hostname`.strip
 port = rand(1000) + 7532
 nodes = File.readlines(ENV['PBS_NODEFILE']).map(&:strip)
 
 nodes.each do |node|
   if node == me
+    puts "Spawning server"
     spawn("./rdma_tcp #{port}")
   else
     sleep 1
-    spawn(rsh node "cd #{Dir.pwd}; ./rdma_tcp #{me} #{port}")
+    puts "Spawning client"
+    spawn(%Q{rsh #{node} 'cd #{Dir.pwd}; ./rdma_tcp #{me} #{port}'})
   end
 end
 

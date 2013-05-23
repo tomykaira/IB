@@ -4,15 +4,15 @@ qstat
 
 echo ""
 echo ""
-echo "Output"
-cat output.$1.csc.is.s.u-tokyo.ac.jp
+echo "runner"
+cat runner.sh.o$1
 
 echo ""
 echo ""
-echo "server"
-cat server.$1.csc.is.s.u-tokyo.ac.jp
+echo "output"
+cat output.$1
 
 echo ""
 echo ""
-echo "client"
-cat client.$1.csc.is.s.u-tokyo.ac.jp
+echo "error"
+cat error.$1

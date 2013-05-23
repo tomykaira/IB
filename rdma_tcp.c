@@ -121,27 +121,26 @@ main(int argc, char *argv[])
 		free(recv);
 	}
 	fprintf(stderr, "[%d] START\n", server);
+	fflush(stdout);
+	fflush(stderr);
 
 	if (server) {
 		struct ibv_mr *mr;
 		for (int size = RDMA_MIN_SIZE; size < RDMA_MAX_SIZE; size += STEP) {
 			char *received = calloc(size, sizeof(char));
 
-			mr = ibv_reg_mr(res.pd, received, size, IBV_ACCESS_REMOTE_WRITE |  IBV_ACCESS_LOCAL_WRITE);
+			TEST_NZ( mr = ibv_reg_mr(res.pd, received, size, IBV_ACCESS_REMOTE_WRITE |  IBV_ACCESS_LOCAL_WRITE) );
 
 			INT_TO_BE(buf, mr->rkey);
 			INT_TO_BE(buf + 4, (((intptr_t)mr->addr) >> 32));
 			INT_TO_BE(buf + 8, (((intptr_t)mr->addr) & 0xffffffff));
-			if (post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1)) {
-				fprintf(stderr, "[%d] failed to post SR\n", server);
-				goto end;
-			}
+			TEST_Z( post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1) );
 			while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
 			}
 			DEBUG { printf("[%d] memory region is sent. key(%x) addr(%lx) rc(%d)\n", server, mr->rkey, (intptr_t)mr->addr, rc); }
 
 			/* wait for done */
-			post_ibreceive(&res, &sge_list, 1);
+			TEST_Z( post_ibreceive(&res, &sge_list, 1) );
 			while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
 			}
 			DEBUG { printf("[%d] %d byte has received (opcode=%d)\n", server, wc.byte_len, wc.opcode); }
@@ -162,7 +161,7 @@ main(int argc, char *argv[])
 			char *content = malloc(size);
 
 			/* receive_peer_mr */
-			post_ibreceive(&res, &sge_list, 1);
+			TEST_Z(post_ibreceive(&res, &sge_list, 1));
 			while (poll_cq(&res, &wc, 1, RCQ_FLG) == 0) {
 			}
 			DEBUG { printf("[%d] receive remote addr: %d byte has received (opcode=%d)\n", server, wc.byte_len, wc.opcode); }
@@ -171,7 +170,7 @@ main(int argc, char *argv[])
 			peer_addr = (peer_addr << 32) | BE_TO_INT(buf + 8);
 			DEBUG { printf("[%d] remote key %x, remote addr %lx\n", server, peer_key, peer_addr); }
 
-			mr = ibv_reg_mr(res.pd, content, size, IBV_ACCESS_LOCAL_WRITE);
+			TEST_NZ(mr = ibv_reg_mr(res.pd, content, size, IBV_ACCESS_LOCAL_WRITE));
 			for (int i = 0; i < size; i += 6) {
 				strncpy(content + i, "Hello!", 6);
 			}
@@ -190,7 +189,7 @@ main(int argc, char *argv[])
 
 			DEBUG { printf("[%d] Queue post_send RDMA\n", server); }
 			start = getCPUCounter();
-			ibv_post_send(res.qp, &wr, &bad_wr);
+			TEST_Z(ibv_post_send(res.qp, &wr, &bad_wr));
 
 			while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
 			}
@@ -205,10 +204,7 @@ main(int argc, char *argv[])
 
 			/* notify done */
 			sprintf(buf, "Done.");
-			if (post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1)) {
-				fprintf(stderr, "[%d] failed to post SR\n", server);
-				goto end;
-			}
+			TEST_Z(post_ibsend(&res, IBV_WR_SEND, &sge_list, sr, 1));
 			while ((rc = poll_cq(&res, &wc, 1, SCQ_FLG)) == 0) {
 			}
 			DEBUG { printf("[%d] Complete post_send Done rc(%d)\n", server, rc); }
