@@ -28,11 +28,11 @@ resource_create(resource_t *res, int ib_port, int myrank)
 	rc = 1;
 	goto err_exit;
     }
-    printf("[%d] found %d IB device(s)\n", myrank, dev_numm);
+    DEBUG { printf("[%d] found %d IB device(s)\n", myrank, dev_numm); }
     /* Open the requested device */
     for(i = 0; i < dev_numm; i ++){
 	dev_name = strdup(ibv_get_device_name(dev_list[i]));
-	fprintf(stdout, "[%d] IB device name: %s\n", myrank, dev_name);
+	DEBUG { printf("[%d] IB device name: %s\n", myrank, dev_name); }
 	ib_dev = dev_list[i];
 	break;
     }
@@ -42,7 +42,7 @@ resource_create(resource_t *res, int ib_port, int myrank)
 	goto err_exit;
     }
     res->ib_ctx = ibv_open_device(ib_dev);
-    printf("[%d] IB context = %lx\n", myrank, (uintptr_t)res->ib_ctx);
+    DEBUG { printf("[%d] IB context = %lx\n", myrank, (uintptr_t)res->ib_ctx); }
     if(!res->ib_ctx){
 	fprintf(stderr, "[%d] failed to open device %s\n", myrank, dev_name);
 	rc = 1;
@@ -120,7 +120,7 @@ resource_create(resource_t *res, int ib_port, int myrank)
 	rc = 1;
 	goto err_exit;
     }
-    printf("[%d] fixed MR was registered with addr=%p, lkey=0x%x, rkey=0x%x, flags=0x%x\n", myrank, res->buf, res->mr_list[0]->lkey, res->mr_list[0]->rkey, mr_flags);
+    DEBUG { printf("[%d] fixed MR was registered with addr=%p, lkey=0x%x, rkey=0x%x, flags=0x%x\n", myrank, res->buf, res->mr_list[0]->lkey, res->mr_list[0]->rkey, mr_flags); }
 
     /* Create QP */
     // inputs:
@@ -148,7 +148,7 @@ resource_create(resource_t *res, int ib_port, int myrank)
 	rc = 1;
 	goto err_exit;
     }
-    printf("[%d] QP was created, QP number=0x%x\n", myrank, res->qp->qp_num);
+    DEBUG { printf("[%d] QP was created, QP number=0x%x\n", myrank, res->qp->qp_num); }
 
     /* EXIT */
 err_exit:

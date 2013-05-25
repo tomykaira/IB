@@ -16,6 +16,8 @@ int write_safe(int fd, char *data, int len);
 int gid_by_hostname();
 int connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int server);
 
+void wait_complete(resource_t *res, int cq_flag);
+
 int TIMES;
 int SIZE;
 
@@ -119,34 +121,27 @@ static void bench_ib_send_recv(int server, resource_t *res)
   char ack[128] = "OK\r\n";
   struct timeval begin, end;
   struct ibv_sge  sge_data, sge_msg;
-  struct ibv_wc  wc;
-  struct ibv_send_wr  *sr;
+  struct ibv_send_wr  sr;
   double elapsed;
 
   memset(data, 'O', SIZE);
 
   create_sge(res, data, SIZE, &sge_data);
   create_sge(res, ack, 128, &sge_msg);
-  memset(&wc, 0, sizeof(struct ibv_wc));
-  sr = malloc(sizeof(*sr));
-  memset(sr, 0, sizeof(*sr));
+  memset(&sr, 0, sizeof(sr));
 
   gettimeofday(&begin, NULL);
   for (int i = 0; i < TIMES; ++i) {
     if (server) {
       post_ibreceive(res, &sge_data, 1);
-	    while (poll_cq(res, &wc, 1, RCQ_FLG) == 0) {
-	    }
-      post_ibsend(res, IBV_WR_SEND, &sge_msg, sr, 1, 1);
-	    while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
-	    }
+      wait_complete(res, RCQ_FLG);
+      post_ibsend(res, IBV_WR_SEND, &sge_msg, &sr, 1, 1);
+      wait_complete(res, SCQ_FLG);
     } else {
-      post_ibsend(res, IBV_WR_SEND, &sge_data, sr, 1, 0);
-	    while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
-	    }
+      post_ibsend(res, IBV_WR_SEND, &sge_data, &sr, 1, 0);
+      wait_complete(res, SCQ_FLG);
       post_ibreceive(res, &sge_msg, 1);
-	    while (poll_cq(res, &wc, 1, RCQ_FLG) == 0) {
-	    }
+      wait_complete(res, RCQ_FLG);
     }
   }
   gettimeofday(&end, NULL);
@@ -154,7 +149,6 @@ static void bench_ib_send_recv(int server, resource_t *res)
 
   report("ib_send_recv", server, elapsed);
 
-  free(sr);
   free(data);
 }
 
@@ -164,7 +158,6 @@ static void bench_rdma_ib(int server, resource_t *res)
   char buf[128];
   struct timeval begin, end;
   struct ibv_sge  sge, sge_buf;
-  struct ibv_wc  wc;
   struct ibv_send_wr  *sr;
   struct ibv_send_wr  wr, *bad_wr = NULL;
   double elapsed;
@@ -173,7 +166,6 @@ static void bench_rdma_ib(int server, resource_t *res)
   memset(data, 'O', SIZE);
 
   create_sge(res, buf, 128, &sge_buf);
-  memset(&wc, 0, sizeof(struct ibv_wc));
   sr = malloc(sizeof(*sr));
   memset(sr, 0, sizeof(*sr));
 
@@ -189,8 +181,7 @@ static void bench_rdma_ib(int server, resource_t *res)
       TEST_NZ(mr = ibv_reg_mr(res->pd, data, SIZE, IBV_ACCESS_LOCAL_WRITE));
       memset(&wr, 0, sizeof(wr));
 
-      while (poll_cq(res, &wc, 1, RCQ_FLG) == 0) {
-      }
+      wait_complete(res, RCQ_FLG);
       peer_key  = BE_TO_INT(buf);
       peer_addr = BE_TO_INT(buf + 4);
       peer_addr = (peer_addr << 32) | BE_TO_INT(buf + 8);
@@ -207,16 +198,14 @@ static void bench_rdma_ib(int server, resource_t *res)
       wr.wr.rdma.rkey = peer_key;
 
       TEST_Z(ibv_post_send(res->qp, &wr, &bad_wr));
-      while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
-      }
+      wait_complete(res, SCQ_FLG);
 
       ibv_dereg_mr(mr);
 
       /* notify done */
       sprintf(buf, "Done.");
       TEST_Z(post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1, 1));
-      while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
-      }
+      wait_complete(res, SCQ_FLG);
     } else {
       TEST_NZ( mr = ibv_reg_mr(res->pd, data, SIZE, IBV_ACCESS_REMOTE_READ) );
 
@@ -224,13 +213,11 @@ static void bench_rdma_ib(int server, resource_t *res)
       INT_TO_BE(buf + 4, (((intptr_t)mr->addr) >> 32));
       INT_TO_BE(buf + 8, (((intptr_t)mr->addr) & 0xffffffff));
       TEST_Z( post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1, 1) );
-      while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
-      }
+      wait_complete(res, SCQ_FLG);
 
       /* wait for done */
       TEST_Z( post_ibreceive(res, &sge_buf, 1) );
-      while (poll_cq(res, &wc, 1, RCQ_FLG) == 0) {
-      }
+      wait_complete(res, RCQ_FLG);
 
       ibv_dereg_mr(mr);
     }
@@ -249,7 +236,6 @@ static void bench_rdma_reuse(int server, resource_t *res)
   char buf[128];
   struct timeval begin, end;
   struct ibv_sge  sge, sge_buf;
-  struct ibv_wc  wc;
   struct ibv_send_wr *sr, wr, *bad_wr = NULL;
   double elapsed;
   struct ibv_mr *mr;
@@ -257,7 +243,6 @@ static void bench_rdma_reuse(int server, resource_t *res)
   memset(data, 'O', SIZE);
 
   create_sge(res, buf, 128, &sge_buf);
-  memset(&wc, 0, sizeof(struct ibv_wc));
   sr = malloc(sizeof(*sr));
   memset(sr, 0, sizeof(*sr));
 
@@ -270,8 +255,8 @@ static void bench_rdma_reuse(int server, resource_t *res)
 
     /* receive_peer_mr */
     TEST_Z(post_ibreceive(res, &sge_buf, 1));
-    while (poll_cq(res, &wc, 1, RCQ_FLG) == 0) {
-    }
+    wait_complete(res, RCQ_FLG);
+
     peer_key  = BE_TO_INT(buf);
     peer_addr = BE_TO_INT(buf + 4);
     peer_addr = (peer_addr << 32) | BE_TO_INT(buf + 8);
@@ -294,8 +279,7 @@ static void bench_rdma_reuse(int server, resource_t *res)
     INT_TO_BE(buf + 8, (((intptr_t)mr->addr) & 0xffffffff));
 
     TEST_Z( post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1, 1) );
-    while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
-    }
+    wait_complete(res, SCQ_FLG);
   }
 
   gettimeofday(&begin, NULL);
@@ -304,33 +288,28 @@ static void bench_rdma_reuse(int server, resource_t *res)
     if (server) {
 
       TEST_Z( post_ibreceive(res, &sge_buf, 1) );
-      while (poll_cq(res, &wc, 1, RCQ_FLG) == 0) {
-      }
+      wait_complete(res, RCQ_FLG);
 
       /* issue mem copy */
       TEST_Z(ibv_post_send(res->qp, &wr, &bad_wr));
-      while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
-      }
+      wait_complete(res, SCQ_FLG);
 
       memcpy(other, data, SIZE);
 
       /* notify done */
       sprintf(buf, "Done.");
       TEST_Z(post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1, 1));
-      while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
-      }
+      wait_complete(res, SCQ_FLG);
     } else {
       memcpy(data, other, SIZE);
 
       sprintf(buf, "DoIt");
       TEST_Z( post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1, 1) );
-      while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
-      }
+      wait_complete(res, SCQ_FLG);
 
       /* wait for done */
       TEST_Z( post_ibreceive(res, &sge_buf, 1) );
-      while (poll_cq(res, &wc, 1, RCQ_FLG) == 0) {
-      }
+      wait_complete(res, RCQ_FLG);
     }
     free(other);
   }
@@ -344,6 +323,34 @@ static void bench_rdma_reuse(int server, resource_t *res)
   free(data);
 }
 
+/* this is not communication */
+static void bench_file(int server)
+{
+  char *data = malloc(SIZE);
+  struct timeval begin, end;
+  double elapsed;
+  FILE * fp;
+  char filename[256];
+
+  memset(data, 'O', SIZE);
+  sprintf(filename, "/tmp/data_%d_%d", SIZE, rand() % 1000);
+  fp = fopen(filename, "w");
+  fwrite(data, sizeof(char), SIZE, fp);
+  fclose(fp);
+
+  gettimeofday(&begin, NULL);
+  for (int i = 0; i < TIMES; ++i) {
+    fp = fopen(filename, "r");
+    fread(data, sizeof(char), SIZE, fp);
+    fclose(fp);
+  }
+  gettimeofday(&end, NULL);
+  elapsed = get_interval(begin, end);
+
+  report("File", server, elapsed);
+  free(data);
+}
+
 
 int
 main(int argc, char *argv[])
@@ -354,15 +361,23 @@ main(int argc, char *argv[])
   int server_sock = -1;
   int sfd = -1;
 
-  if (argc == 3) {
+  if (argc == 4) {
     // host port
+    SIZE = atoi(argv[3]);
+
+    srand(atoi(argv[2]) + 1);
+
     DEBUG { printf("Starting as Client to %s\n", argv[1]); }
     server = 0;
     sfd = connect_peer(argv[1], atoi(argv[2]));
   } else {
-    // port
+    // port size
     struct sockaddr_in client;
     uint len;
+
+    SIZE = atoi(argv[2]);
+
+    srand(atoi(argv[1]));
 
     DEBUG { printf("Starting as Server\n"); }
     server = 1;
@@ -386,23 +401,23 @@ main(int argc, char *argv[])
   TEST_Z( connect_qp(&res, sfd, ib_port, gid_by_hostname(), server) );
 
   tcp_sync(server, sfd);
-  printf("[%d] START\n", server);
 
   TIMES = 10000;
 
-  for (SIZE = 1000; SIZE <= 16000; SIZE += 1000) {
-    bench_tcp(server, sfd);
-    tcp_sync(server, sfd);
+  bench_tcp(server, sfd);
+  tcp_sync(server, sfd);
 
-    bench_ib_send_recv(server, &res);
-    tcp_sync(server, sfd);
+  bench_ib_send_recv(server, &res);
+  tcp_sync(server, sfd);
 
-    bench_rdma_ib(server, &res);
-    tcp_sync(server, sfd);
+  bench_rdma_ib(server, &res);
+  tcp_sync(server, sfd);
 
-    bench_rdma_reuse(server, &res);
-    tcp_sync(server, sfd);
-  }
+  bench_rdma_reuse(server, &res);
+  tcp_sync(server, sfd);
+
+  bench_file(server);
+  tcp_sync(server, sfd);
 
  end:
   if (sfd >= 0) {

@@ -1,5 +1,24 @@
 #include "ib.h"
 
+#define COUNT_MAX 1000000
+
+void
+wait_complete(resource_t *res, int cq_flag)
+{
+	struct ibv_wc  wc;
+	int count = 0;
+
+	memset(&wc, 0, sizeof(struct ibv_wc));
+	while (poll_cq(res, &wc, 1, cq_flag) == 0) {
+		count++;
+		if (count > COUNT_MAX) {
+			printf("status: %s, vendor syndrome: 0x%d, %d byte, op: 0x%d, id=%ld\n",
+			       ibv_wc_status_str(wc.status), wc.vendor_err, wc.byte_len, wc.opcode, wc.wr_id);
+			exit(1);
+		}
+	}
+}
+
 int
 poll_cq(resource_t *res, struct ibv_wc *wc, int count, int cq_flg)
 {
@@ -13,7 +32,7 @@ poll_cq(resource_t *res, struct ibv_wc *wc, int count, int cq_flg)
         target = res->rcq;
     }
 
-    rc = ibv_poll_cq(res->scq, count, wc); /* wc will overwritten */
+    rc = ibv_poll_cq(target, count, wc); /* wc will overwritten */
     return rc;
 }
 
