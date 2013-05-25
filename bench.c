@@ -16,8 +16,8 @@ int write_safe(int fd, char *data, int len);
 int gid_by_hostname();
 int connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int server);
 
-#define TIMES 10000
-#define SIZE  16000
+int TIMES;
+int SIZE;
 
 static double get_interval(struct timeval bt, struct timeval et)
 {
@@ -60,7 +60,7 @@ static void report(const char * type, const int server, const double elapsed)
 
 static void bench_tcp(int server, int sfd)
 {
-  char data[SIZE];
+  char *data = malloc(SIZE);
   char ack[] = "OK\r\n";
   struct timeval begin, end;
   double elapsed;
@@ -110,11 +110,12 @@ static void bench_tcp(int server, int sfd)
   elapsed = get_interval(begin, end);
 
   report("TCP", server, elapsed);
+  free(data);
 }
 
 static void bench_ib_send_recv(int server, resource_t *res)
 {
-  char data[SIZE];
+  char *data = malloc(SIZE);
   char ack[] = "OK\r\n";
   struct timeval begin, end;
   struct ibv_sge  sge_data, sge_msg;
@@ -154,11 +155,12 @@ static void bench_ib_send_recv(int server, resource_t *res)
   report("ib_send_recv", server, elapsed);
 
   free(sr);
+  free(data);
 }
 
 static void bench_rdma_ib(int server, resource_t *res)
 {
-  char data[SIZE];
+  char *data = malloc(SIZE);
   char buf[128];
   struct timeval begin, end;
   struct ibv_sge  sge, sge_buf;
@@ -237,11 +239,12 @@ static void bench_rdma_ib(int server, resource_t *res)
   elapsed = get_interval(begin, end);
 
   report("rdma_ib", server, elapsed);
+  free(data);
 }
 
 static void bench_rdma_reuse(int server, resource_t *res)
 {
-  char data[SIZE];
+  char *data = malloc(SIZE);
   char buf[128];
   struct timeval begin, end;
   struct ibv_sge  sge, sge_buf;
@@ -336,6 +339,7 @@ static void bench_rdma_reuse(int server, resource_t *res)
   ibv_dereg_mr(mr);
 
   report("rdma_ib", server, elapsed);
+  free(data);
 }
 
 
@@ -382,17 +386,22 @@ main(int argc, char *argv[])
   tcp_sync(server, sfd);
   printf("[%d] START\n", server);
 
-  bench_tcp(server, sfd);
-  tcp_sync(server, sfd);
+  TIMES = 10000;
+  SIZE  = 16000;
 
-  bench_ib_send_recv(server, &res);
-  tcp_sync(server, sfd);
+  for (SIZE = 1000; SIZE <= 16000; SIZE += 1000) {
+    bench_tcp(server, sfd);
+    tcp_sync(server, sfd);
 
-  bench_rdma_ib(server, &res);
-  tcp_sync(server, sfd);
+    bench_ib_send_recv(server, &res);
+    tcp_sync(server, sfd);
 
-  bench_rdma_reuse(server, &res);
-  tcp_sync(server, sfd);
+    bench_rdma_ib(server, &res);
+    tcp_sync(server, sfd);
+
+    bench_rdma_reuse(server, &res);
+    tcp_sync(server, sfd);
+  }
 
  end:
   if (sfd >= 0) {
