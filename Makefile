@@ -10,7 +10,7 @@ LDFLAGS := ${LDFLAGS} -L/usr/lib -libverbs
 SRC    =	ibtest.c ibtest2.c rdma_test.c rdma_tcp.c resource.c qp.c qp_tcp.c \
 sendrec.c pmiclient.c comm_tcp.c
 
-all: .depend ibtest ibtest2 rdma_test rdma_tcp queue bench
+all: .depend bench queue
 queue: runner.sh
 	qsub runner.sh
 	qstat

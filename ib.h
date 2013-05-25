@@ -6,7 +6,7 @@
 #include <infiniband/verbs.h>
 #include <sys/types.h>
 
-#if 1
+#if 0
 #define DEBUG
 #else
 #define DEBUG	if(0)
