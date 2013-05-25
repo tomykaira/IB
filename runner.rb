@@ -15,11 +15,11 @@ nodes = File.readlines(ENV['PBS_NODEFILE']).map(&:strip)
 nodes.each do |node|
   if node == me
     puts "Spawning server"
-    spawn("./rdma_tcp #{port}", [:out, :err] => ["server.#{job_no}", 'w'])
+    spawn("./bench #{port}", [:out, :err] => ["server.#{job_no}", 'w'])
   else
     sleep 1
     puts "Spawning client"
-    spawn(%Q{rsh #{node} 'cd #{Dir.pwd}; ./rdma_tcp #{me} #{port}'}, [:out, :err] => ["client.#{job_no}", 'w'])
+    spawn(%Q{rsh #{node} 'cd #{Dir.pwd}; ./bench #{me} #{port}'}, [:out, :err] => ["client.#{job_no}", 'w'])
   end
 end
 
