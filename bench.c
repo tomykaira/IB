@@ -16,12 +16,6 @@ int write_safe(int fd, char *data, int len);
 int gid_by_hostname();
 int connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int server);
 
-#define RDMA_MIN_SIZE 4096
-#define RDMA_MAX_SIZE RDMA_MIN_SIZE*4 /* size は alignment が大事かもしれない */
-#define STEP RDMA_MIN_SIZE
-
-#define TCP_PORT 8352
-
 #define TIMES 10000
 #define SIZE  16000
 
