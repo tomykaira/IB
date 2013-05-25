@@ -50,6 +50,7 @@ int read_safe(int fd, char **data)
         buf = realloc(buf, current_size*2);
         current_size *= 2;
       }
+      continue;
     }
 
     break;
