@@ -6,6 +6,8 @@
 #include <netinet/in.h>
 #include <sys/time.h>
 
+#define HUMAN_READABLE 0
+
 resource_t  res;
 
 int open_server(int port);
@@ -53,11 +55,15 @@ tcp_sync(int server, int sfd)
 
 static void report(const char * type, const int server, const double elapsed)
 {
-  printf("%s (%s) =>\n", type, server ? "server" : "client");
-  printf("\tsize\t%d\n", SIZE);
-  printf("\ttimes\t%d\n", TIMES);
-  printf("\tinterval\t%lf [sec]\n", elapsed);
-  printf("\tperformance\t%lf [req/sec]\n\n", (double)TIMES/elapsed);
+  if (HUMAN_READABLE) {
+    printf("%s (%s) =>\n", type, server ? "server" : "client");
+    printf("\tsize\t%d\n", SIZE);
+    printf("\ttimes\t%d\n", TIMES);
+    printf("\tinterval\t%lf [sec]\n", elapsed);
+    printf("\tperformance\t%lf [req/sec]\n\n", (double)TIMES/elapsed);
+  } else {
+    printf("%s, %s, %d, %d, %lf\n", type, server ? "server" : "client", SIZE, TIMES, elapsed);
+  }
 }
 
 static void bench_tcp(int server, int sfd)
