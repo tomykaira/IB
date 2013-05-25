@@ -87,6 +87,6 @@ extern int	resource_create(resource_t *res, int ib_port, int myrank);
 extern int	poll_cq(resource_t *res, struct ibv_wc *wc, int num_wr, int cq_flg);
 extern int	create_sge(resource_t *res, char *buf, int size, struct ibv_sge *sge);
 extern int	post_ibreceive(resource_t *res, struct ibv_sge *sge_list, int sge_size);
-extern int	post_ibsend(resource_t *res, int opcode, struct ibv_sge *sge_list,
-			    struct ibv_send_wr *sr, int sge_size);
+extern int	post_ibsend(resource_t *res, int opcode, struct ibv_sge *sge_list, struct ibv_send_wr *sr,
+	            int sge_size, int inlinep);
 extern int resource_destroy(resource_t *res);

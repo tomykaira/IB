@@ -122,7 +122,7 @@ post_ibreceive2(resource_t *res, struct ibv_sge *sge_list, int count)
 
 int
 post_ibsend(resource_t *res, int opcode, struct ibv_sge *sge_list, struct ibv_send_wr *sr,
-	    int sge_size)
+	    int sge_size, int inlinep)
 {
     int rc;
     struct ibv_send_wr	*bad_wr = NULL;
@@ -133,7 +133,11 @@ post_ibsend(resource_t *res, int opcode, struct ibv_sge *sge_list, struct ibv_se
     sr->sg_list = sge_list;
     sr->num_sge = sge_size;
     sr->opcode = opcode;
-    sr->send_flags = IBV_SEND_SIGNALED | IBV_SEND_INLINE;
+
+    if (inlinep)
+	sr->send_flags = IBV_SEND_SIGNALED | IBV_SEND_INLINE;
+    else
+	sr->send_flags = IBV_SEND_SIGNALED;
 /*
     sr->send_flags = IBV_SEND_SIGNALED | IBV_SEND_INLINE;
     sr->send_flags = IBV_SEND_SIGNALED;

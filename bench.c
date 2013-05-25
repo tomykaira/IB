@@ -142,11 +142,11 @@ static void bench_ib_send_recv(int server, resource_t *res)
       post_ibreceive(res, &sge_data, 1);
 	    while (poll_cq(res, &wc, 1, RCQ_FLG) == 0) {
 	    }
-      post_ibsend(res, IBV_WR_SEND, &sge_msg, sr, 1);
+      post_ibsend(res, IBV_WR_SEND, &sge_msg, sr, 1, 1);
 	    while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
 	    }
     } else {
-      post_ibsend(res, IBV_WR_SEND, &sge_data, sr, 1);
+      post_ibsend(res, IBV_WR_SEND, &sge_data, sr, 1, 0);
 	    while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
 	    }
       post_ibreceive(res, &sge_msg, 1);
@@ -158,6 +158,8 @@ static void bench_ib_send_recv(int server, resource_t *res)
   elapsed = get_interval(begin, end);
 
   report("ib_send_recv", server, elapsed);
+
+  free(sr);
 }
 
 static void bench_rdma_ib(int server, resource_t *res)
@@ -216,7 +218,7 @@ static void bench_rdma_ib(int server, resource_t *res)
 
       /* notify done */
       sprintf(buf, "Done.");
-      TEST_Z(post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1));
+      TEST_Z(post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1, 1));
       while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
       }
     } else {
@@ -225,7 +227,7 @@ static void bench_rdma_ib(int server, resource_t *res)
       INT_TO_BE(buf, mr->rkey);
       INT_TO_BE(buf + 4, (((intptr_t)mr->addr) >> 32));
       INT_TO_BE(buf + 8, (((intptr_t)mr->addr) & 0xffffffff));
-      TEST_Z( post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1) );
+      TEST_Z( post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1, 1) );
       while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
       }
 
@@ -293,7 +295,7 @@ static void bench_rdma_reuse(int server, resource_t *res)
     INT_TO_BE(buf + 4, (((intptr_t)mr->addr) >> 32));
     INT_TO_BE(buf + 8, (((intptr_t)mr->addr) & 0xffffffff));
 
-    TEST_Z( post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1) );
+    TEST_Z( post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1, 1) );
     while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
     }
   }
@@ -316,14 +318,14 @@ static void bench_rdma_reuse(int server, resource_t *res)
 
       /* notify done */
       sprintf(buf, "Done.");
-      TEST_Z(post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1));
+      TEST_Z(post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1, 1));
       while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
       }
     } else {
       memcpy(data, other, SIZE);
 
       sprintf(buf, "DoIt");
-      TEST_Z( post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1) );
+      TEST_Z( post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1, 1) );
       while (poll_cq(res, &wc, 1, SCQ_FLG) == 0) {
       }
 
