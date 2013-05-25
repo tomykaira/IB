@@ -116,7 +116,7 @@ static void bench_tcp(int server, int sfd)
 static void bench_ib_send_recv(int server, resource_t *res)
 {
   char *data = malloc(SIZE);
-  char ack[] = "OK\r\n";
+  char ack[128] = "OK\r\n";
   struct timeval begin, end;
   struct ibv_sge  sge_data, sge_msg;
   struct ibv_wc  wc;
@@ -126,7 +126,7 @@ static void bench_ib_send_recv(int server, resource_t *res)
   memset(data, 'O', SIZE);
 
   create_sge(res, data, SIZE, &sge_data);
-  create_sge(res, ack, strlen(ack), &sge_msg);
+  create_sge(res, ack, 128, &sge_msg);
   memset(&wc, 0, sizeof(struct ibv_wc));
   sr = malloc(sizeof(*sr));
   memset(sr, 0, sizeof(*sr));
@@ -239,6 +239,7 @@ static void bench_rdma_ib(int server, resource_t *res)
   elapsed = get_interval(begin, end);
 
   report("rdma_ib", server, elapsed);
+  free(sr);
   free(data);
 }
 
@@ -299,7 +300,7 @@ static void bench_rdma_reuse(int server, resource_t *res)
 
   gettimeofday(&begin, NULL);
   for (int i = 0; i < TIMES; ++i) {
-    char *other = malloc(sizeof(data));
+    char *other = malloc(SIZE);
     if (server) {
 
       TEST_Z( post_ibreceive(res, &sge_buf, 1) );
@@ -339,6 +340,7 @@ static void bench_rdma_reuse(int server, resource_t *res)
   ibv_dereg_mr(mr);
 
   report("rdma_ib", server, elapsed);
+  free(sr);
   free(data);
 }
 
@@ -387,7 +389,6 @@ main(int argc, char *argv[])
   printf("[%d] START\n", server);
 
   TIMES = 10000;
-  SIZE  = 16000;
 
   for (SIZE = 1000; SIZE <= 16000; SIZE += 1000) {
     bench_tcp(server, sfd);

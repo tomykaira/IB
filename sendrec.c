@@ -1,37 +1,20 @@
 #include "ib.h"
 
 int
-poll_cq(resource_t *res, struct ibv_wc *wc, int num_wr, int cq_flg)
+poll_cq(resource_t *res, struct ibv_wc *wc, int count, int cq_flg)
 {
-    int			ntries;
-    int			poll_result = 0;
-    int			rc = 0;
-    int			i = 0;
+    int   rc = 0;
+    struct ibv_cq *target = NULL;
 
     /* poll the completion for a while before giving up of doing it .. */
     if(cq_flg == SCQ_FLG && res->scq != NULL) {
-	for (ntries = 0; ntries < MAX_TRIES; ntries++) {
-	    rc = ibv_poll_cq(res->scq, num_wr, wc); /* wc will overwritten */
-	    if (rc < 0) break;
-	    poll_result += rc;
-	    if (poll_result >= num_wr) break;
-	}
+        target = res->scq;
     } else if (cq_flg == RCQ_FLG && res->rcq != NULL){
-	for (ntries = 0; ntries < MAX_TRIES; ntries++) {
-	    rc = ibv_poll_cq(res->rcq, num_wr, wc);
-	    if (rc < 0) break;
-	    poll_result += rc;
-	    if (poll_result >= num_wr) break;
-	}
+        target = res->rcq;
     }
-    if (poll_result <= 0) return poll_result;
-    DEBUG {
-	for(i = 0; i < num_wr; i++){
-	    printf("status: %s, vendor syndrome: 0x%d, %d byte, op: 0x%d, id=%ld\n",
-	           ibv_wc_status_str(wc[i].status), wc[i].vendor_err, wc[i].byte_len, wc[i].opcode, wc[i].wr_id);
-	}
-    }
-    return poll_result;
+
+    rc = ibv_poll_cq(res->scq, count, wc); /* wc will overwritten */
+    return rc;
 }
 
 int
@@ -78,18 +61,17 @@ create_sge2(resource_t *res, char *buf, int size, int count, struct ibv_sge *sge
 int
 post_ibreceive(resource_t *res, struct ibv_sge *sge_list, int sge_size)
 {
-    struct ibv_recv_wr	*rr;
+    struct ibv_recv_wr	rr;
     struct ibv_recv_wr	*bad_wr;
     int			rc;
 
     /* Create RR list */
-    rr = malloc(sizeof(*rr));
-    memset(rr, 0, sizeof(*rr));
-    rr->next = NULL;
-    rr->wr_id = 1;
-    rr->sg_list = sge_list;
-    rr->num_sge = sge_size;
-    rc = ibv_post_recv(res->qp, rr, &bad_wr);
+    memset(&rr, 0, sizeof(rr));
+    rr.next = NULL;
+    rr.wr_id = 1;
+    rr.sg_list = sge_list;
+    rr.num_sge = sge_size;
+    rc = ibv_post_recv(res->qp, &rr, &bad_wr);
     if (rc) {
 	fprintf(stderr, "failed to post RR(%d),bad_wr.wr_id=%ld, errmsg=%s\n", rc, bad_wr->wr_id, strerror(rc));
     }
