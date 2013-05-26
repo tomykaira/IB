@@ -121,7 +121,65 @@ static void bench_tcp(int server, int sfd)
   free(data);
 }
 
-static void bench_ib_send_recv(int server, resource_t *res)
+static void bench_ib_mr_reg(int server, resource_t *res)
+{
+  char *data = malloc(SIZE);
+  char ack[128] = "OK\r\n";
+  struct timeval begin, end;
+  struct ibv_sge  sge, sge_msg;
+  struct ibv_send_wr  sr;
+  struct ibv_mr *mr;
+  double elapsed;
+
+  memset(data, 'O', SIZE);
+
+  create_sge(res, ack, 128, &sge_msg);
+  memset(&sr, 0, sizeof(sr));
+  memset(&sge, 0, sizeof(sge));
+
+  gettimeofday(&begin, NULL);
+  for (int i = 0; i < TIMES; ++i) {
+    char *other = malloc(SIZE);
+    if (server) {
+      TEST_NZ(mr = ibv_reg_mr(res->pd, data, SIZE, IBV_ACCESS_LOCAL_WRITE));
+
+      sge.addr = (intptr_t)data;
+      sge.length = SIZE;
+      sge.lkey = mr->lkey;
+
+      post_ibreceive(res, &sge, 1);
+      wait_complete(res, RCQ_FLG);
+
+      ibv_dereg_mr(mr);
+
+      post_ibsend(res, IBV_WR_SEND, &sge_msg, &sr, 1, 1);
+      wait_complete(res, SCQ_FLG);
+    } else {
+      TEST_NZ(mr = ibv_reg_mr(res->pd, data, SIZE, 0));
+
+      sge.addr = (intptr_t)data;
+      sge.length = SIZE;
+      sge.lkey = mr->lkey;
+
+      post_ibsend(res, IBV_WR_SEND, &sge, &sr, 1, 0);
+      wait_complete(res, SCQ_FLG);
+
+      ibv_dereg_mr(mr);
+
+      post_ibreceive(res, &sge_msg, 1);
+      wait_complete(res, RCQ_FLG);
+    }
+    free(other);
+  }
+  gettimeofday(&end, NULL);
+  elapsed = get_interval(begin, end);
+
+  report("ib_mr_reg", server, elapsed);
+
+  free(data);
+}
+
+static void bench_ib_reuse(int server, resource_t *res)
 {
   char *data = malloc(SIZE);
   char ack[128] = "OK\r\n";
@@ -138,10 +196,14 @@ static void bench_ib_send_recv(int server, resource_t *res)
 
   gettimeofday(&begin, NULL);
   for (int i = 0; i < TIMES; ++i) {
+    char *other = malloc(SIZE);
     if (server) {
       post_ibreceive(res, &sge_data, 1);
       wait_complete(res, RCQ_FLG);
       post_ibsend(res, IBV_WR_SEND, &sge_msg, &sr, 1, 1);
+
+      memcpy(other, data, SIZE);
+
       wait_complete(res, SCQ_FLG);
     } else {
       post_ibsend(res, IBV_WR_SEND, &sge_data, &sr, 1, 0);
@@ -149,11 +211,12 @@ static void bench_ib_send_recv(int server, resource_t *res)
       post_ibreceive(res, &sge_msg, 1);
       wait_complete(res, RCQ_FLG);
     }
+    free(other);
   }
   gettimeofday(&end, NULL);
   elapsed = get_interval(begin, end);
 
-  report("ib_send_recv", server, elapsed);
+  report("ib_reuse", server, elapsed);
 
   free(data);
 }
@@ -300,11 +363,12 @@ static void bench_rdma_reuse(int server, resource_t *res)
       TEST_Z(ibv_post_send(res->qp, &wr, &bad_wr));
       wait_complete(res, SCQ_FLG);
 
-      memcpy(other, data, SIZE);
-
       /* notify done */
       sprintf(buf, "Done.");
       TEST_Z(post_ibsend(res, IBV_WR_SEND, &sge_buf, sr, 1, 1));
+
+      memcpy(other, data, SIZE);
+
       wait_complete(res, SCQ_FLG);
     } else {
       memcpy(data, other, SIZE);
@@ -410,20 +474,23 @@ main(int argc, char *argv[])
 
   TIMES = 10000;
 
-  bench_tcp(server, sfd);
+  /* bench_tcp(server, sfd); */
+  /* tcp_sync(server, sfd); */
+
+  bench_ib_mr_reg(server, &res);
   tcp_sync(server, sfd);
 
-  bench_ib_send_recv(server, &res);
+  bench_ib_reuse(server, &res);
   tcp_sync(server, sfd);
 
-  bench_rdma_ib(server, &res);
-  tcp_sync(server, sfd);
+  /* bench_rdma_ib(server, &res); */
+  /* tcp_sync(server, sfd); */
 
-  bench_rdma_reuse(server, &res);
-  tcp_sync(server, sfd);
+  /* bench_rdma_reuse(server, &res); */
+  /* tcp_sync(server, sfd); */
 
-  bench_file(server);
-  tcp_sync(server, sfd);
+  /* bench_file(server); */
+  /* tcp_sync(server, sfd); */
 
  end:
   if (sfd >= 0) {
