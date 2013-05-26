@@ -11,9 +11,14 @@ Dir.chdir(ENV['PBS_O_WORKDIR'])
 me = `hostname`.strip
 nodes = File.readlines(ENV['PBS_NODEFILE']).map(&:strip)
 
+SMALL  = 1000
+MEDIUM = 65536
+LARGE  = 1048576
+
+[1000, 65536, 1048576].each do |step|
 16.times do |x|
   port = rand(1000) + 7532
-  size = (x + 1) * 1000
+  size = (x + 1) * step
 
   nodes.each do |node|
     if node == me
@@ -27,6 +32,7 @@ nodes = File.readlines(ENV['PBS_NODEFILE']).map(&:strip)
   end
 
   Process.waitall
+end
 end
 
 exit 0
