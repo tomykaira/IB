@@ -324,7 +324,7 @@ static void bench_rdma_reuse(int server, resource_t *res)
 
   ibv_dereg_mr(mr);
 
-  report("rdma_ib", server, elapsed);
+  report("rdma_reuse", server, elapsed);
   free(sr);
   free(data);
 }
