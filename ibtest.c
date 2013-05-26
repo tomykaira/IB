@@ -4,11 +4,21 @@
 resource_t	res;
 int connect_qp(resource_t *res, int ib_port, int gid_idx, int myrank);
 
-#define MHZ	2932.583
 #define SIZE	437		/* < 450 if SEND_INLINE set */
 #define TIME	10
 
 char	buf[SIZE];
+
+int
+gid_by_hostname()
+{
+    char hostname[256];
+    if (gethostname(hostname, 256) == -1) {
+	perror("gethostname");
+	return -1;
+    }
+    return (uint8_t)hostname[2];
+}
 
 int
 main()
@@ -29,7 +39,7 @@ main()
     mypmiInit(&rank, &nprocs);
     fprintf(stderr, "[%d] nprocs(%d)\n", rank, nprocs);
     rc = resource_create(&res, ib_port, rank);
-    gid_idx = rank;
+    gid_idx = gid_by_hostname();
     rc = connect_qp(&res, ib_port, gid_idx, rank);
     create_sge(&res, buf, SIZE, &sge_list);
     memset(&wc, 0, sizeof(struct ibv_wc));
