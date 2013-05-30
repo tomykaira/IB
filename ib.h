@@ -54,7 +54,7 @@ typedef struct resources {
 #define MAX_SQ_CAPACITY 20
 #define MAX_RQ_CAPACITY 20
 #define MAX_SGE_CAPACITY 20
-#define MAX_CQ_CAPACITY 20
+#define MAX_CQ_CAPACITY 25
 #define MAX_MR_NUM 10
 
 #define MAX_TRIES 1

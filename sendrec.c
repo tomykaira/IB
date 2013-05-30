@@ -51,25 +51,18 @@ clear_cq(resource_t *res, int cq_flag)
 	dummy_wc = calloc(MAX_CQ_CAPACITY, sizeof(struct ibv_wc));
     }
 
-    /* poll the completion for a while before giving up of doing it .. */
     if(cq_flag == SCQ_FLG && res->scq != NULL) {
         target = res->scq;
     } else if (cq_flag == RCQ_FLG && res->rcq != NULL){
         target = res->rcq;
     }
 
-    while (1) {
-	rc = ibv_poll_cq(target, MAX_CQ_CAPACITY, dummy_wc); /* wc will overwritten */
-	if (rc < 0) {
+    rc = ibv_poll_cq(target, MAX_CQ_CAPACITY, dummy_wc);
+    if (rc < 0) {
 	    fprintf(stderr, "ibv_poll_cq failed");
 	    return rc;
-	} else if (rc == 0) {
-	    break;
-	} else {
-	    found += rc;
-	}
     }
-    return MAX_CQ_CAPACITY - found;
+    return rc < MAX_CQ_CAPACITY ? MAX_CQ_CAPACITY - rc : 0;
 }
 
 int

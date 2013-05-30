@@ -137,9 +137,8 @@ void act_as_sender(resource_t *res)
 
     /* issue mem copy */
     TEST_Z(ibv_post_send(res->qp, &wr, &bad_wr));
-    if (queue_counter < MAX_CQ_CAPACITY) {
-      ++queue_counter;
-    } else {
+    ++queue_counter;
+    if (queue_counter >= MAX_CQ_CAPACITY) {
       queue_counter = clear_cq(res, SCQ_FLG);
     }
   }
@@ -202,9 +201,8 @@ void act_as_receiver(resource_t *res)
     /* memcpy(copy, data, SIZE); */
     DEBUG { printf("Received: %s\n", data); }
 
-    if (queue_counter < MAX_CQ_CAPACITY) {
-      ++queue_counter;
-    } else {
+    ++queue_counter;
+    if (queue_counter >= MAX_CQ_CAPACITY) {
       queue_counter = clear_cq(res, SCQ_FLG);
     }
   }
