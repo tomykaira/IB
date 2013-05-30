@@ -9,6 +9,7 @@
 
 int connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int server);
 void wait_complete(resource_t *res, int cq_flag);
+int clear_cq(resource_t *res, int cq_flag);
 
 extern int TIMES;
 extern int SIZE;
@@ -93,6 +94,7 @@ void act_as_sender(resource_t *res)
   char *data    = calloc(data_size, 1);
   char *copy    = calloc(SIZE, 1);
   struct ibv_mr *request_mr, *data_mr;
+  int queue_counter = 0;
 
   memset(copy, 'O', SIZE);
 
@@ -135,8 +137,11 @@ void act_as_sender(resource_t *res)
 
     /* issue mem copy */
     TEST_Z(ibv_post_send(res->qp, &wr, &bad_wr));
-    /* this can be postponed -- this is right before polling, no problem */
-    wait_complete(res, SCQ_FLG);
+    if (queue_counter < MAX_CQ_CAPACITY) {
+      ++queue_counter;
+    } else {
+      queue_counter = clear_cq(res, SCQ_FLG);
+    }
   }
   gettimeofday(&end, NULL);
   report("rec_init", 1, get_interval(begin, end));
@@ -162,6 +167,7 @@ void act_as_receiver(resource_t *res)
   struct ibv_mr *request_mr, *data_mr;
   uint32_t sender_key;
   uint64_t sender_addr;
+  int queue_counter = 0;
 
   create_sge(res, buf, BUF_SIZE, &sge_buf);
   sr = calloc(1, sizeof(*sr));
@@ -196,8 +202,11 @@ void act_as_receiver(resource_t *res)
     /* memcpy(copy, data, SIZE); */
     DEBUG { printf("Received: %s\n", data); }
 
-    /* this can be postponed */
-    wait_complete(res, SCQ_FLG);
+    if (queue_counter < MAX_CQ_CAPACITY) {
+      ++queue_counter;
+    } else {
+      queue_counter = clear_cq(res, SCQ_FLG);
+    }
   }
   /* quit request */
   format_receive_request("test", 4, data_mr, request);

@@ -8,7 +8,6 @@ wait_complete(resource_t *res, int cq_flag)
 	struct ibv_wc  wc;
 	int count = 0;
 
-	memset(&wc, 0, sizeof(struct ibv_wc));
 	while (poll_cq(res, &wc, 1, cq_flag) == 0) {
 		count++;
 		if (count > COUNT_MAX) {
@@ -37,6 +36,40 @@ poll_cq(resource_t *res, struct ibv_wc *wc, int count, int cq_flg)
 
     rc = ibv_poll_cq(target, count, wc); /* wc will overwritten */
     return rc;
+}
+
+static struct ibv_wc *dummy_wc = NULL;
+
+int
+clear_cq(resource_t *res, int cq_flag)
+{
+    int   rc = 0;
+    struct ibv_cq *target = NULL;
+    int found = 0;
+
+    if (!dummy_wc) {
+	dummy_wc = calloc(MAX_CQ_CAPACITY, sizeof(struct ibv_wc));
+    }
+
+    /* poll the completion for a while before giving up of doing it .. */
+    if(cq_flag == SCQ_FLG && res->scq != NULL) {
+        target = res->scq;
+    } else if (cq_flag == RCQ_FLG && res->rcq != NULL){
+        target = res->rcq;
+    }
+
+    while (1) {
+	rc = ibv_poll_cq(target, MAX_CQ_CAPACITY, dummy_wc); /* wc will overwritten */
+	if (rc < 0) {
+	    fprintf(stderr, "ibv_poll_cq failed");
+	    return rc;
+	} else if (rc == 0) {
+	    break;
+	} else {
+	    found += rc;
+	}
+    }
+    return MAX_CQ_CAPACITY - found;
 }
 
 int
