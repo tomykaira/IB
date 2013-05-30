@@ -20,6 +20,10 @@ int connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int server);
 
 void wait_complete(resource_t *res, int cq_flag);
 
+/* receiver-initiated */
+void act_as_sender(resource_t *res);
+void act_as_receiver(resource_t *res);
+
 int TIMES;
 int SIZE;
 
@@ -474,8 +478,8 @@ main(int argc, char *argv[])
 
   TIMES = 10000;
 
-  /* bench_tcp(server, sfd); */
-  /* tcp_sync(server, sfd); */
+  bench_tcp(server, sfd);
+  tcp_sync(server, sfd);
 
   bench_ib_mr_reg(server, &res);
   tcp_sync(server, sfd);
@@ -483,14 +487,21 @@ main(int argc, char *argv[])
   bench_ib_reuse(server, &res);
   tcp_sync(server, sfd);
 
-  /* bench_rdma_ib(server, &res); */
-  /* tcp_sync(server, sfd); */
+  bench_rdma_ib(server, &res);
+  tcp_sync(server, sfd);
 
-  /* bench_rdma_reuse(server, &res); */
-  /* tcp_sync(server, sfd); */
+  bench_rdma_reuse(server, &res);
+  tcp_sync(server, sfd);
 
-  /* bench_file(server); */
-  /* tcp_sync(server, sfd); */
+  bench_file(server);
+  tcp_sync(server, sfd);
+
+  if (server) {
+    act_as_sender(&res);
+  } else {
+    act_as_receiver(&res);
+  }
+  tcp_sync(server, sfd);
 
  end:
   if (sfd >= 0) {

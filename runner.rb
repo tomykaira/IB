@@ -11,19 +11,28 @@ Dir.chdir(ENV['PBS_O_WORKDIR'])
 me = `hostname`.strip
 nodes = File.readlines(ENV['PBS_NODEFILE']).map(&:strip)
 
-port = rand(1000) + 7532
+SMALL  = 1000
+MEDIUM = 65536
+LARGE  = 1048576
 
-nodes.each do |node|
-  if node == me
-    puts "Spawning server"
-    spawn("./receiver_initiated #{port}", [:out, :err] => ["server.#{job_no}", 'a'])
-  else
-    sleep 1
-    puts "Spawning client"
-    spawn(%Q{rsh #{node} 'cd #{Dir.pwd}; ./receiver_initiated #{me} #{port}'}, [:out, :err] => ["client.#{job_no}", 'a'])
+[1000].each do |step|
+16.times do |x|
+  port = rand(1000) + 7532
+  size = (x + 1) * step
+
+  nodes.each do |node|
+    if node == me
+      puts "Spawning server"
+      spawn("./bench #{port} #{size}", [:out, :err] => ["server.#{job_no}", 'a'])
+    else
+      sleep 1
+      puts "Spawning client"
+      spawn(%Q{rsh #{node} 'cd #{Dir.pwd}; ./bench #{me} #{port} #{size}'}, [:out, :err] => ["client.#{job_no}", 'a'])
+    end
   end
-end
 
-Process.waitall
+  Process.waitall
+end
+end
 
 exit 0

@@ -10,7 +10,7 @@ LDFLAGS := ${LDFLAGS} -L/usr/lib -libverbs
 SRC    =	ibtest.c ibtest2.c rdma_test.c rdma_tcp.c resource.c qp.c qp_tcp.c \
 sendrec.c pmiclient.c comm_tcp.c receiver_initiated.c
 
-all: .depend receiver_initiated queue
+all: .depend bench queue
 queue: runner.sh
 	qsub runner.sh
 	qstat
@@ -26,7 +26,7 @@ rdma_test: rdma_test.o resource.o qp.o sendrec.o pmiclient.o
 	$(MPICC) -o $@ $^
 
 rdma_tcp: rdma_tcp.o resource.o qp_tcp.o sendrec.o comm_tcp.o
-bench: bench.o resource.o qp_tcp.o sendrec.o comm_tcp.o
+bench: bench.o resource.o qp_tcp.o sendrec.o comm_tcp.o receiver_initiated.o
 receiver_initiated: receiver_initiated.o resource.o qp_tcp.o sendrec.o comm_tcp.o
 
 clean:
