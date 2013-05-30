@@ -130,7 +130,7 @@ void act_as_sender(resource_t *res)
     wr.wr.rdma.remote_addr = peer_addr;
     wr.wr.rdma.rkey = peer_key;
 
-    memcpy(data, copy, SIZE);
+    /* memcpy(data, copy, SIZE); */
     data[data_size-1] = 255; /* check bit */
 
     /* issue mem copy */
@@ -193,7 +193,7 @@ void act_as_receiver(resource_t *res)
     /* poll last byte */
     POLL(data[data_size-1]);
     data[data_size-1] = 0;
-    memcpy(copy, data, SIZE);
+    /* memcpy(copy, data, SIZE); */
     DEBUG { printf("Received: %s\n", data); }
 
     /* this can be postponed */

@@ -474,34 +474,34 @@ main(int argc, char *argv[])
   TEST_Z( resource_create(&res, ib_port, server) );
   TEST_Z( connect_qp(&res, sfd, ib_port, gid_by_hostname(), server) );
 
-  tcp_sync(server, sfd);
+  /* tcp_sync(server, sfd); */
 
-  TIMES = 10000;
+  TIMES = 1000;
 
-  bench_tcp(server, sfd);
-  tcp_sync(server, sfd);
+  /* bench_tcp(server, sfd); */
+  /* tcp_sync(server, sfd); */
 
-  bench_ib_mr_reg(server, &res);
-  tcp_sync(server, sfd);
+  /* bench_ib_mr_reg(server, &res); */
+  /* tcp_sync(server, sfd); */
 
-  bench_ib_reuse(server, &res);
-  tcp_sync(server, sfd);
+  /* bench_ib_reuse(server, &res); */
+  /* tcp_sync(server, sfd); */
 
-  bench_rdma_ib(server, &res);
-  tcp_sync(server, sfd);
+  /* bench_rdma_ib(server, &res); */
+  /* tcp_sync(server, sfd); */
 
-  bench_rdma_reuse(server, &res);
-  tcp_sync(server, sfd);
+  /* bench_rdma_reuse(server, &res); */
+  /* tcp_sync(server, sfd); */
 
-  bench_file(server);
-  tcp_sync(server, sfd);
+  /* bench_file(server); */
+  /* tcp_sync(server, sfd); */
 
   if (server) {
     act_as_sender(&res);
   } else {
     act_as_receiver(&res);
   }
-  tcp_sync(server, sfd);
+  /* tcp_sync(server, sfd); */
 
  end:
   if (sfd >= 0) {
