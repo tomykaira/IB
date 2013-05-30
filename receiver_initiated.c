@@ -71,6 +71,12 @@ static void format_receive_request(char * key,
   output[255] = 1;
 }
 
+static void update_receive_request(char *key, size_t keylen, char *output)
+{
+  output[12] = (uint8_t)keylen;
+  memcpy(output + 13, key, keylen);
+}
+
 static void extract_receive_request(char *request,
                                     char *key,
                                     size_t *keylen,
@@ -145,7 +151,7 @@ static void act_as_sender(resource_t *res)
 
     /* issue mem copy */
     TEST_Z(ibv_post_send(res->qp, &wr, &bad_wr));
-    /* this can be postponed */
+    /* this can be postponed -- this is right before polling, no problem */
     wait_complete(res, SCQ_FLG);
   }
 
@@ -186,12 +192,11 @@ static void act_as_receiver(resource_t *res)
   wr.wr.rdma.remote_addr = sender_addr;
   wr.wr.rdma.rkey = sender_key;
 
-  for (int i = 0; i < 10; ++i) {
-    format_receive_request("test", 4, data_mr, request);
-    TEST_Z(ibv_post_send(res->qp, &wr, &bad_wr));
+  format_receive_request("", 0, data_mr, request);
 
-    /* this can be postponed or interleaved with data poll */
-    wait_complete(res, SCQ_FLG);
+  for (int i = 0; i < 10; ++i) {
+    update_receive_request("test", 4, request);
+    TEST_Z(ibv_post_send(res->qp, &wr, &bad_wr));
 
     DEBUG {printf("waiting response\n");}
 
@@ -199,6 +204,9 @@ static void act_as_receiver(resource_t *res)
     POLL(data[RDMA_MIN_SIZE-1]);
     data[RDMA_MIN_SIZE-1] = 0;
     printf("Received: %s\n", data);
+
+    /* this can be postponed */
+    wait_complete(res, SCQ_FLG);
   }
   /* quit request */
   format_receive_request("test", 4, data_mr, request);
