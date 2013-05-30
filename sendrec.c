@@ -17,6 +17,9 @@ wait_complete(resource_t *res, int cq_flag)
 			exit(1);
 		}
 	}
+	if (wc.status != 0)
+		printf("status: %s, vendor syndrome: 0x%d, %d byte, op: 0x%d, id=%ld\n",
+		       ibv_wc_status_str(wc.status), wc.vendor_err, wc.byte_len, wc.opcode, wc.wr_id);
 }
 
 int
