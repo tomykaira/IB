@@ -101,19 +101,17 @@ static void act_as_sender(resource_t *res)
 {
   struct ibv_sge  sge, sge_buf;
   struct ibv_send_wr *sr, wr, *bad_wr = NULL;
-  char *request = malloc(request_size);
-  char *buf     = malloc(SIZE);
-  char *data    = malloc(RDMA_MIN_SIZE);
+  char *request = calloc(request_size, 1);
+  char *buf     = calloc(SIZE, 1);
+  char *data    = calloc(RDMA_MIN_SIZE, 1);
   struct ibv_mr *request_mr, *data_mr;
 
   sprintf(data, "Hello! From sender.");
 
   create_sge(res, buf, SIZE, &sge_buf);
-  sr = malloc(sizeof(*sr));
-  memset(sr, 0, sizeof(*sr));
+  sr = calloc(1, sizeof(*sr));
 
   TEST_NZ(request_mr = ibv_reg_mr(res->pd, request, request_size, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE));
-  memset(request, 0, request_size);
 
   format_mr(request_mr, buf);
 
@@ -163,16 +161,15 @@ static void act_as_receiver(resource_t *res)
 {
   struct ibv_sge  sge, sge_buf;
   struct ibv_send_wr *sr, wr, *bad_wr = NULL;
-  char *request = malloc(request_size);
-  char *buf     = malloc(SIZE);
-  char *data    = malloc(RDMA_MIN_SIZE);
+  char *request = calloc(request_size, 1);
+  char *buf     = calloc(SIZE, 1);
+  char *data    = calloc(RDMA_MIN_SIZE, 1);
   struct ibv_mr *request_mr, *data_mr;
   uint32_t sender_key;
   uint64_t sender_addr;
 
   create_sge(res, buf, SIZE, &sge_buf);
-  sr = malloc(sizeof(*sr));
-  memset(sr, 0, sizeof(*sr));
+  sr = calloc(1, sizeof(*sr));
 
   TEST_NZ(request_mr = ibv_reg_mr(res->pd, request, request_size, IBV_ACCESS_LOCAL_WRITE));
   TEST_NZ(data_mr = ibv_reg_mr(res->pd, data, RDMA_MIN_SIZE, IBV_ACCESS_LOCAL_WRITE |  IBV_ACCESS_REMOTE_WRITE));
