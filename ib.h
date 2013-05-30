@@ -63,12 +63,12 @@ typedef struct resources {
 
 #define MHZ  2932.583
 
-#define TEST_Z(x) do { if ( (x)) die("error: " #x " failed (returned non-zero)." ); } while (0)
-#define TEST_NZ(x)  do { if (!(x)) die("error: " #x " failed (returned zero/null)."); } while (0)
+#define TEST_Z(x) do { if ( (x)) die("error: " #x " failed (returned non-zero).", __FILE__, __LINE__); } while (0)
+#define TEST_NZ(x)  do { if (!(x)) die("error: " #x " failed (returned zero/null).", __FILE__, __LINE__); } while (0)
 
-static void die(const char *reason)
+static void die(const char *reason, const char *file, const int line)
 {
-  fprintf(stderr, "%s\n", reason);
+  fprintf(stderr, "%s (at %s:%d)\n", reason, file, line);
   exit(EXIT_FAILURE);
 }
 
