@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/time.h>
 #include <assert.h>
 
 int connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int server);
@@ -16,6 +17,9 @@ extern int SIZE;
 #define RDMA_OFFSET 1
 
 #define POLL(x) while (x == 0) { sched_yield(); }
+
+double get_interval(struct timeval bt, struct timeval et);
+void report(const char * type, const int server, const double elapsed);
 
 const int request_size = 256;
 
@@ -80,6 +84,7 @@ void prepare_rdma_write_wr(struct ibv_mr *mr, struct ibv_sge *sge, struct ibv_se
 
 void act_as_sender(resource_t *res)
 {
+  struct timeval begin, end;
   struct ibv_sge  sge, sge_buf;
   struct ibv_send_wr *sr, wr, *bad_wr = NULL;
   int data_size = SIZE + RDMA_OFFSET;
@@ -105,6 +110,7 @@ void act_as_sender(resource_t *res)
 
   wait_complete(res, SCQ_FLG);
 
+  gettimeofday(&begin, NULL);
   while (request[request_size-2] == 0) {
     uint32_t peer_key;
     uint64_t peer_addr;
@@ -132,6 +138,8 @@ void act_as_sender(resource_t *res)
     /* this can be postponed -- this is right before polling, no problem */
     wait_complete(res, SCQ_FLG);
   }
+  gettimeofday(&end, NULL);
+  report("rec_init", 1, get_interval(begin, end));
 
   ibv_dereg_mr(request_mr);
   ibv_dereg_mr(data_mr);
@@ -143,6 +151,7 @@ void act_as_sender(resource_t *res)
 
 void act_as_receiver(resource_t *res)
 {
+  struct timeval begin, end;
   struct ibv_sge  sge, sge_buf;
   struct ibv_send_wr *sr, wr, *bad_wr = NULL;
   int data_size = SIZE + RDMA_OFFSET;
@@ -174,6 +183,7 @@ void act_as_receiver(resource_t *res)
 
   format_receive_request("", 0, data_mr, request);
 
+  gettimeofday(&begin, NULL);
   for (int i = 0; i < TIMES; ++i) {
     update_receive_request("test", 4, request);
     TEST_Z(ibv_post_send(res->qp, &wr, &bad_wr));
@@ -194,6 +204,9 @@ void act_as_receiver(resource_t *res)
   request[request_size - 2] = 1;
   TEST_Z(ibv_post_send(res->qp, &wr, &bad_wr));
   wait_complete(res, SCQ_FLG);
+
+  gettimeofday(&end, NULL);
+  report("rec_init", 0, get_interval(begin, end));
 
   ibv_dereg_mr(request_mr);
   ibv_dereg_mr(data_mr);

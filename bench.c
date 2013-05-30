@@ -27,7 +27,7 @@ void act_as_receiver(resource_t *res);
 int TIMES;
 int SIZE;
 
-static double get_interval(struct timeval bt, struct timeval et)
+double get_interval(struct timeval bt, struct timeval et)
 {
     double b, e;
 
@@ -57,7 +57,7 @@ tcp_sync(int server, int sfd)
     free(recv);
 }
 
-static void report(const char * type, const int server, const double elapsed)
+void report(const char * type, const int server, const double elapsed)
 {
   if (HUMAN_READABLE) {
     printf("%s (%s) =>\n", type, server ? "server" : "client");
