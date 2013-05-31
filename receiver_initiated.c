@@ -57,8 +57,9 @@ static void update_receive_request(char *key, size_t keylen, char *output)
   memcpy(output + 13, key, keylen);
 }
 
+/* never store or free `key`, it is valid while request is valid */
 static void extract_receive_request(char *request,
-                                    char *key,
+                                    char **key,
                                     size_t *keylen,
                                     uint32_t *ptr_key,
                                     uint64_t *ptr_addr)
@@ -66,7 +67,7 @@ static void extract_receive_request(char *request,
   size_t len;
   extract_mr(request, ptr_key, ptr_addr);
   *keylen = len = (size_t)request[12];
-  memcpy(key, request + 13, len);
+  *key = request + 13;
 }
 
 void prepare_rdma_write_wr(struct ibv_mr *mr, struct ibv_sge *sge, struct ibv_send_wr *wr)
@@ -116,7 +117,7 @@ void act_as_sender(resource_t *res)
   while (request[request_size-2] == 0) {
     uint32_t peer_key;
     uint64_t peer_addr;
-    char key[242];
+    char *key;
     size_t key_len;
 
     DEBUG {printf("waiting request\n");}
@@ -125,7 +126,7 @@ void act_as_sender(resource_t *res)
     POLL(request[request_size-1]);
     request[request_size-1] = 0;
 
-    extract_receive_request(request, key, &key_len, &peer_key, &peer_addr);
+    extract_receive_request(request, &key, &key_len, &peer_key, &peer_addr);
 
     TEST_Z(strncmp(key, "test", key_len));
 
