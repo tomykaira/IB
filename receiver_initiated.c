@@ -152,6 +152,8 @@ void act_as_sender(resource_t *res)
   free(request);
   free(data);
   free(buf);
+  free(copy);
+  free(sr);
 }
 
 void act_as_receiver(resource_t *res)
@@ -222,4 +224,6 @@ void act_as_receiver(resource_t *res)
   free(request);
   free(data);
   free(buf);
+  free(copy);
+  free(sr);
 }
