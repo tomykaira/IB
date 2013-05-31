@@ -15,8 +15,9 @@ SMALL  = 1000
 MEDIUM = 65536
 LARGE  = 1048576
 
-[1000, 65536, 1048576].each do |step|
-16.times do |x|
+[1000].each do |step|
+# 16.times do |x|
+  x = 0
   port = rand(1000) + 7532
   size = (x + 1) * step
 
@@ -33,6 +34,6 @@ LARGE  = 1048576
 
   Process.waitall
 end
-end
+# end
 
 exit 0

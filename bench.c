@@ -20,10 +20,14 @@ int connect_qp(resource_t *res, int fd, int ib_port, int gid_idx, int server);
 
 void wait_complete(resource_t *res, int cq_flag);
 
+/* receiver-initiated */
+void act_as_sender(resource_t *res);
+void act_as_receiver(resource_t *res);
+
 int TIMES;
 int SIZE;
 
-static double get_interval(struct timeval bt, struct timeval et)
+double get_interval(struct timeval bt, struct timeval et)
 {
     double b, e;
 
@@ -53,7 +57,7 @@ tcp_sync(int server, int sfd)
     free(recv);
 }
 
-static void report(const char * type, const int server, const double elapsed)
+void report(const char * type, const int server, const double elapsed)
 {
   if (HUMAN_READABLE) {
     printf("%s (%s) =>\n", type, server ? "server" : "client");
@@ -470,18 +474,18 @@ main(int argc, char *argv[])
   TEST_Z( resource_create(&res, ib_port, server) );
   TEST_Z( connect_qp(&res, sfd, ib_port, gid_by_hostname(), server) );
 
-  tcp_sync(server, sfd);
+  /* tcp_sync(server, sfd); */
 
-  TIMES = 10000;
+  TIMES = 1000;
 
   /* bench_tcp(server, sfd); */
   /* tcp_sync(server, sfd); */
 
-  bench_ib_mr_reg(server, &res);
-  tcp_sync(server, sfd);
+  /* bench_ib_mr_reg(server, &res); */
+  /* tcp_sync(server, sfd); */
 
-  bench_ib_reuse(server, &res);
-  tcp_sync(server, sfd);
+  /* bench_ib_reuse(server, &res); */
+  /* tcp_sync(server, sfd); */
 
   /* bench_rdma_ib(server, &res); */
   /* tcp_sync(server, sfd); */
@@ -490,6 +494,13 @@ main(int argc, char *argv[])
   /* tcp_sync(server, sfd); */
 
   /* bench_file(server); */
+  /* tcp_sync(server, sfd); */
+
+  if (server) {
+    act_as_sender(&res);
+  } else {
+    act_as_receiver(&res);
+  }
   /* tcp_sync(server, sfd); */
 
  end:

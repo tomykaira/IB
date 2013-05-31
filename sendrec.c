@@ -8,7 +8,6 @@ wait_complete(resource_t *res, int cq_flag)
 	struct ibv_wc  wc;
 	int count = 0;
 
-	memset(&wc, 0, sizeof(struct ibv_wc));
 	while (poll_cq(res, &wc, 1, cq_flag) == 0) {
 		count++;
 		if (count > COUNT_MAX) {
@@ -16,6 +15,11 @@ wait_complete(resource_t *res, int cq_flag)
 			       ibv_wc_status_str(wc.status), wc.vendor_err, wc.byte_len, wc.opcode, wc.wr_id);
 			exit(1);
 		}
+	}
+	if (wc.status != 0) {
+		printf("status: %s, vendor syndrome: 0x%d, %d byte, op: 0x%d, id=%ld\n",
+		       ibv_wc_status_str(wc.status), wc.vendor_err, wc.byte_len, wc.opcode, wc.wr_id);
+		exit(1);
 	}
 }
 
@@ -34,6 +38,32 @@ poll_cq(resource_t *res, struct ibv_wc *wc, int count, int cq_flg)
 
     rc = ibv_poll_cq(target, count, wc); /* wc will overwritten */
     return rc;
+}
+
+static struct ibv_wc *dummy_wc = NULL;
+
+int
+clear_cq(resource_t *res, int cq_flag)
+{
+    int   rc = 0;
+    struct ibv_cq *target = NULL;
+
+    if (!dummy_wc) {
+	dummy_wc = calloc(MAX_CQ_CAPACITY, sizeof(struct ibv_wc));
+    }
+
+    if(cq_flag == SCQ_FLG && res->scq != NULL) {
+        target = res->scq;
+    } else if (cq_flag == RCQ_FLG && res->rcq != NULL){
+        target = res->rcq;
+    }
+
+    rc = ibv_poll_cq(target, MAX_CQ_CAPACITY, dummy_wc);
+    if (rc < 0) {
+	    fprintf(stderr, "ibv_poll_cq failed");
+	    return rc;
+    }
+    return rc < MAX_CQ_CAPACITY ? MAX_CQ_CAPACITY - rc : 0;
 }
 
 int
