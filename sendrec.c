@@ -45,7 +45,6 @@ clear_cq(resource_t *res, int cq_flag)
 {
     int   rc = 0;
     struct ibv_cq *target = NULL;
-    int found = 0;
 
     if (!dummy_wc) {
 	dummy_wc = calloc(MAX_CQ_CAPACITY, sizeof(struct ibv_wc));
